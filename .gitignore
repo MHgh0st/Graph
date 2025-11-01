@@ -90,3 +90,9 @@ typings/
 
 # Electron-Forge
 out/
+
+# Dist
+dist/
+
+#bun lock
+bun.lock

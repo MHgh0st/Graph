@@ -17,40 +17,49 @@ import {
   MarkerType,
   type EdgeProps,
   EdgeLabelRenderer,
+  applyNodeChanges,
+  NodeChange,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import LayoutWorker from "../utils/layout-worker.ts?worker";
-import { List, type RowComponentProps } from "react-window";
-
-// Define the electron API type
-declare global {
-  interface Window {
-    electronAPI: {
-      processData: (
-        formatType: "csv" | "pkl",
-        inputPath: string,
-      ) => Promise<any>;
-      openFileDialog: () => Promise<any>;
-      readProcessedFiles: () => Promise<any>;
-      readJsonFile: (filePath: string) => Promise<any>;
-    };
-  }
-}
-
+import ELK from "elkjs/lib/elk.bundled.js";
+import { Card, CardHeader, CardBody } from "@heroui/card";
+import { Divider } from "@heroui/divider";
+import { Button } from "@heroui/button";
+import { Accordion, AccordionItem } from "@heroui/accordion";
+import { Tooltip } from "@heroui/tooltip";
+import closeIcon from "../assets/close-icon.svg";
+import displayIcon from "../assets/display-icon.svg";
 interface GraphProps {
-  path: string;
+  data: any[] | null;
+  className?: string;
 }
 
 interface TooltipData {
   Source_Activity: string;
   Target_Activity: string;
-  Case_Count: number;
+  Weight_Value: number;
   Tooltip_Mean_Time: string;
   Tooltip_Total_Time: string;
 }
 
-export default function Graph({ path }: GraphProps) {
-  const [allCaseIds, setAllCaseIds] = useState<string[]>([]);
+const elk = new ELK();
+
+const layoutOptions = {
+  algorithm: "layered",
+  direction: "RIGHT",
+  "layered.spacing.nodeNode": "150",
+  "layered.spacing.layerLayer": "350",
+  edgeRouting: "ORTHOGONAL",
+  "layered.nodePlacement.strategy": "NETWORK_SIMPLEX",
+  "layered.crossingMinimization.strategy": "LAYER_SWEEP",
+  "layered.cycleBreaking.strategy": "GREEDY",
+  "spacing.edgeNode": "50",
+  "spacing.edgeEdge": "50",
+  "spacing.nodeNodeBetweenLayers": "50",
+};
+
+export default function Graph({ data, className }: GraphProps) {
   const [allNodes, setAllNodes] = useState<Node[]>([]);
   const [allEdges, setAllEdges] = useState<Edge[]>([]);
 
@@ -59,29 +68,40 @@ export default function Graph({ path }: GraphProps) {
 
   const [isLoading, setIsLoading] = useState(true);
   const [loadingMessage, setLoadingMessage] = useState(
-    "در حال بارگذاری داده‌ها...",
-  );
-  const [selectedCaseIds, setSelectedCaseIds] = useState<Set<string>>(
-    new Set(),
-  );
-  const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(
-    new Set(),
+    "در حال بارگذاری داده‌ها..."
   );
   const [activeTooltipEdgeId, setActiveTooltipEdgeId] = useState<string | null>(
-    null,
+    null
   );
-  const [relevantNodesForFilter, setRelevantNodesForFilter] = useState<Node[]>(
-    [],
+  const [cardContentFlag, setCardContentFlag] = useState<
+    "nodeTooltip" | "pathfinding" | null
+  >(null);
+  const [nodeTooltipTitle, setNodeTooltipTitle] = useState<string | null>(null);
+  const [nodeTooltipData, setNodeTooltipData] = useState<
+    Array<{ targetLabel: string; weight: string | number }>
+  >([]);
+  const [isPathFinding, setIsPathFinding] = useState(false);
+  const [pathStartNodeId, setPathStartNodeId] = useState<string | null>(null);
+  const [pathEndNodeId, setPathEndNodeId] = useState<string | null>(null);
+
+  interface Path {
+    nodes: string[];
+    edges: string[];
+  }
+  const [foundPaths, setFoundPaths] = useState<Path[]>([]);
+
+  const [selectedPathNodes, setSelectedPathNodes] = useState<Set<string>>(
+    new Set()
+  );
+  const [selectedPathEdges, setSelectedPathEdges] = useState<Set<string>>(
+    new Set()
+  );
+
+  const [selectedPathIndex, setSelectedPathIndex] = useState<number | null>(
+    null
   );
 
   const workerRef = useRef<Worker>(null);
-  const fetchData = async (filePath: string) => {
-    if (!window.electronAPI?.readJsonFile) {
-      throw new Error("electronAPI.readJsonFile is not available");
-    }
-    const jsonData = await window.electronAPI.readJsonFile(filePath);
-    return jsonData;
-  };
 
   const handleEdgeSelect = useCallback(
     (edgeId: string) => {
@@ -126,17 +146,127 @@ export default function Graph({ path }: GraphProps) {
         return styledEdges;
       });
       setActiveTooltipEdgeId((currentActiveId) =>
-        currentActiveId === edgeId ? null : edgeId,
+        currentActiveId === edgeId ? null : edgeId
       );
       // برای تجربه کاربری بهتر، همه نودها را از انتخاب خارج می‌کنیم
       setLayoutedNodes((prevNodes) =>
         prevNodes.map((node) => ({
           ...node,
           selected: false,
-        })),
+        }))
       );
     },
-    [setLayoutedEdges, setLayoutedNodes],
+    [setLayoutedEdges, setLayoutedNodes]
+  );
+
+  const handleSelectPath = (path: Path, index: number) => {
+    setSelectedPathNodes(new Set(path.nodes));
+    setSelectedPathEdges(new Set(path.edges));
+    setSelectedPathIndex(index);
+  };
+
+  const handleNodeClick = useCallback(
+    (_event: React.MouseEvent, node: Node) => {
+      if (!isPathFinding) {
+        const nodeLabel = (node.data?.label as string) || (node.id as string);
+        setNodeTooltipData([]);
+
+        const outgoingEdges = allEdges.filter(
+          (edge) => edge.source === node.id
+        );
+
+        const outgoingEdgeIds = new Set(outgoingEdges.map((e) => e.id));
+
+        const tooltipData = outgoingEdges.map((edge) => {
+          const targetNode = allNodes.find((n) => n.id === edge.target);
+          return {
+            targetLabel:
+              (targetNode?.data?.label as string) || (edge.target as string),
+            weight: (edge.label as string) || "N/A",
+          };
+        });
+
+        setCardContentFlag("nodeTooltip");
+        setNodeTooltipData(tooltipData);
+        setNodeTooltipTitle(nodeLabel);
+
+        setLayoutedNodes((nds) =>
+          nds.map((n) => ({
+            ...n,
+            selected: n.id === node.id,
+          }))
+        );
+
+        setActiveTooltipEdgeId(null);
+
+        setLayoutedEdges((prevEdges) =>
+          prevEdges.map((edge) => {
+            const originalStroke =
+              (edge.data as any)?.originalStroke ||
+              (edge.style?.stroke?.includes("rgba")
+                ? edge.style.stroke
+                : edge.style?.stroke || "#3b82f6");
+            const originalStrokeWidth =
+              (edge.data as any)?.originalStrokeWidth || 2;
+            const originalOpacity = originalStroke.includes("rgba")
+              ? parseFloat(originalStroke.split(",")[3])
+              : 1;
+
+            // بررسی کن که آیا این یال، جزو یال‌های خروجی است یا نه
+            const isOutgoing = outgoingEdgeIds.has(edge.id);
+
+            return {
+              ...edge,
+              selected: isOutgoing, // وضعیت انتخاب را تنظیم کن
+              style: {
+                ...(edge.style || {}),
+                // اگر یال خروجی است، قرمز و ضخیم (هایلایت)، وگرنه استایل اصلی
+                stroke: isOutgoing ? "#ef4444" : originalStroke,
+                strokeWidth: isOutgoing ? 4 : originalStrokeWidth,
+                strokeOpacity: isOutgoing ? 1 : originalOpacity,
+              },
+            };
+          })
+        );
+        return;
+      }
+
+      setCardContentFlag("pathfinding");
+      setActiveTooltipEdgeId(null);
+
+      if (!pathStartNodeId) {
+        setPathStartNodeId(node.id);
+        setPathEndNodeId(null);
+        setFoundPaths([]);
+        setSelectedPathNodes(new Set([node.id])); // فقط نود شروع را هایلایت کن
+        setSelectedPathEdges(new Set());
+        return;
+      }
+
+      if (pathStartNodeId && !pathEndNodeId && node.id !== pathStartNodeId) {
+        const endId = node.id;
+        setPathEndNodeId(endId);
+        const paths = findAllPaths(pathStartNodeId, endId);
+        setFoundPaths(paths);
+        setSelectedPathNodes(new Set([pathStartNodeId, endId]));
+        setSelectedPathEdges(new Set());
+        return;
+      }
+      setPathStartNodeId(node.id);
+      setPathEndNodeId(null);
+      setFoundPaths([]);
+      setSelectedPathNodes(new Set([node.id]));
+      setSelectedPathEdges(new Set());
+    },
+    [
+      isPathFinding,
+      pathStartNodeId,
+      allEdges,
+      allNodes,
+      pathEndNodeId,
+      setLayoutedEdges,
+      setLayoutedNodes,
+    ]
   );
 
   // ۱. راه‌اندازی Worker
@@ -148,13 +278,8 @@ export default function Graph({ path }: GraphProps) {
       const { type, payload } = event.data;
 
       if (type === "INITIAL_DATA_PROCESSED") {
-        setAllCaseIds([...payload.allCaseIds]);
         setAllNodes([...payload.allNodes]);
         setAllEdges([...payload.allEdges]);
-        setIsLoading(false);
-      } else if (type === "LAYOUT_CALCULATED") {
-        setLayoutedNodes(payload.nodes);
-        setLayoutedEdges(payload.edges);
         setIsLoading(false);
       }
     };
@@ -168,190 +293,97 @@ export default function Graph({ path }: GraphProps) {
   }, []);
 
   useEffect(() => {
-    if (!path) {
+    if (!data || data.length === 0) {
+      setLayoutedNodes([]);
       setIsLoading(false);
       return;
     }
 
     setIsLoading(true);
-    setLoadingMessage("در حال بارگذاری و پردازش اولیه داده‌ها...");
+    setLoadingMessage("در حال پردازش اولیه داده‌ها...");
 
-    fetchData(path).then((rawData) => {
-      workerRef.current?.postMessage({
-        type: "PROCESS_INITIAL_DATA",
-        payload: rawData,
-      });
+    // داده‌های خام را برای پردازش اولیه به Worker ارسال کن
+    workerRef.current?.postMessage({
+      type: "PROCESS_INITIAL_DATA",
+      payload: data, // 🔽 از prop ورودی استفاده می‌کنیم
     });
-  }, [path]);
+  }, [data]);
 
+  // محاسبه چیدمان بعد از پردازش اولیه داده‌ها
   useEffect(() => {
-    if (allEdges.length === 0) return;
-
-    if (selectedCaseIds.size === 0) {
-      setLayoutedNodes([]);
-      setLayoutedEdges([]);
-      return;
-    }
+    if (allNodes.length === 0 || allEdges.length === 0) return;
 
     setIsLoading(true);
-    setLoadingMessage("در حال فیلتر و محاسبه چیدمان گراف...");
+    setLoadingMessage("در حال محاسبه چیدمان گراف...");
 
-    // ارسال داده‌ها به worker برای فیلتر و محاسبه چیدمان
-    workerRef.current?.postMessage({
-      type: "FILTER_AND_LAYOUT",
-      payload: {
-        allNodes,
-        allEdges,
-        selectedCaseIds: Array.from(selectedCaseIds),
-        selectedNodeIds: Array.from(selectedNodeIds),
-        filterByNodes: selectedNodeIds.size > 0, // اگر راس‌هایی انتخاب شده باشند، فیلتر فعال می‌شود
-      },
-    });
-  }, [selectedCaseIds, selectedNodeIds, allNodes, allEdges]);
+    const nodeHeight = 50;
+    const elkNodes = allNodes.map((node: Node) => ({
+      id: node.id,
+      width: node.style?.width || 250,
+      height: nodeHeight,
+    }));
 
-  useEffect(() => {
-    // اگر هیچ Case ID انتخاب نشده باشد، لیست راس‌های مرتبط خالی است
-    if (selectedCaseIds.size === 0 || allEdges.length === 0) {
-      setRelevantNodesForFilter([]);
-      return;
-    }
+    const elkEdges = allEdges.map((edge: Edge) => ({
+      id: edge.id,
+      sources: [edge.source],
+      targets: [edge.target],
+    }));
 
-    // ۱. یال‌ها را بر اساس Case ID های انتخاب شده فیلتر کن
-    const filteredEdges = allEdges.filter((edge) =>
-      (edge.data as any)?.Case_IDs?.some?.((id: string) =>
-        selectedCaseIds.has(id),
-      ),
-    );
+    const graphToLayout = {
+      id: "root",
+      layoutOptions: layoutOptions,
+      children: elkNodes,
+      edges: elkEdges,
+    };
 
-    // ۲. از یال‌های فیلتر شده، ID های منحصر به فرد راس‌ها را استخراج کن
-    const relevantNodeIds = new Set(
-      filteredEdges.flatMap((edge) => [edge.source, edge.target]),
-    );
+    elk
+      .layout(graphToLayout)
+      .then((layoutedGraph) => {
+        const newLayoutedNodes = allNodes.map((node) => {
+          const elkNode = layoutedGraph.children.find(
+            (n: any) => n.id === node.id
+          );
+          return {
+            ...node,
+            position: { x: elkNode.x, y: elkNode.y },
+          };
+        });
 
-    // ۳. آبجکت کامل راس‌های مرتبط را از allNodes پیدا کن
-    const relevantNodes = allNodes.filter((node) =>
-      relevantNodeIds.has(node.id),
-    );
-
-    // ۴. state جدید را آپدیت کن
-    setRelevantNodesForFilter(relevantNodes);
-
-    // ۵. (اختیاری ولی مهم برای تجربه کاربری)
-    // انتخاب‌های فعلی در فیلتر راس‌ها را پاک کن تا با لیست جدید تداخل نداشته باشد
-    setSelectedNodeIds(new Set());
-  }, [selectedCaseIds, allNodes, allEdges]);
-
-  // انتخاب و فیلتر
-  const handleCheckboxChange = (caseId: string) => {
-    setSelectedCaseIds((prev) => {
-      const newSet = new Set(prev);
-      newSet.has(caseId) ? newSet.delete(caseId) : newSet.add(caseId);
-      return newSet;
-    });
-  };
-
-  const handleSelectAll = (isChecked: boolean) => {
-    setSelectedCaseIds(isChecked ? new Set(allCaseIds) : new Set());
-  };
-
-  const handleNodeCheckboxChange = (nodeId: string) => {
-    setSelectedNodeIds((prev) => {
-      const newSet = new Set(prev);
-      newSet.has(nodeId) ? newSet.delete(nodeId) : newSet.add(nodeId);
-      return newSet;
-    });
-  };
-
-  const handleSelectAllNodes = (isChecked: boolean) => {
-    if (isChecked) {
-      // انتخاب همه راس‌ها
-      const relevantNodeIds = relevantNodesForFilter.map((node) => node.id);
-      setSelectedNodeIds(new Set(relevantNodeIds));
-    } else {
-      // عدم انتخاب همه راس‌ها
-      setSelectedNodeIds(new Set());
-    }
-  };
-
-  const CaseIdFilter = ({
-    index,
-    style,
-    allCaseIds,
-  }: RowComponentProps<{
-    allCaseIds: string[];
-  }>) => {
-    return (
-      <>
-        <div
-          style={style}
-          key={allCaseIds[index]}
-          className="flex items-center justify-between my-1"
-        >
-          <label
-            htmlFor={allCaseIds[index]}
-            className="truncate"
-            title={allCaseIds[index]}
-          >
-            {allCaseIds[index]}
-          </label>
-          <input
-            type="checkbox"
-            id={allCaseIds[index]}
-            checked={selectedCaseIds.has(allCaseIds[index])}
-            onChange={() => handleCheckboxChange(allCaseIds[index])}
-            className="w-4 h-4"
-          />
-        </div>
-      </>
-    );
-  };
-
-  const NodeFilter = ({
-    index,
-    style,
-    allNodes,
-  }: RowComponentProps<{
-    allNodes: Node[];
-  }>) => {
-    const node = allNodes[index];
-    return (
-      <>
-        <div
-          style={style}
-          key={node.id}
-          className="flex items-center justify-between my-1"
-        >
-          <label
-            htmlFor={node.id}
-            className="truncate"
-            title={node.data?.label || node.id}
-          >
-            {node.data?.label || node.id}
-          </label>
-          <input
-            type="checkbox"
-            id={node.id}
-            checked={selectedNodeIds.has(node.id)}
-            onChange={() => handleNodeCheckboxChange(node.id)}
-            className="w-4 h-4"
-          />
-        </div>
-      </>
-    );
-  };
+        setLayoutedNodes(newLayoutedNodes);
+        setLayoutedEdges(allEdges);
+        setIsLoading(false);
+        console.log("Component: ELK Layout finished.");
+      })
+      .catch((e) => {
+        console.error("Component: ELK layout failed:", e);
+        setIsLoading(false);
+      });
+  }, [allNodes, allEdges]);
 
   const edgesForRender = useMemo(() => {
-    return layoutedEdges.map((edge) => ({
-      ...edge,
-      data: {
-        ...edge.data,
-        onEdgeSelect: handleEdgeSelect, // تابع را به آبجکت data اضافه می‌کنیم
-        isTooltipVisible: edge.id === activeTooltipEdgeId,
-      },
-      // اضافه کردن رویداد کلیک مستقیم به یال
-      onClick: () => handleEdgeSelect(edge.id),
-    }));
-  }, [layoutedEdges, handleEdgeSelect]);
+    const isHighlighting = selectedPathEdges.size > 0;
+    return layoutedEdges.map((edge) => {
+      const isHighlighted = selectedPathEdges.has(edge.id);
+      const opacity = isHighlighting && !isHighlighted ? 0.1 : 1;
+      return {
+        ...edge,
+        data: {
+          ...edge.data,
+          onEdgeSelect: handleEdgeSelect,
+          isTooltipVisible: edge.id === activeTooltipEdgeId,
+        },
+        // اضافه کردن رویداد کلیک مستقیم به یال
+        onClick: () => handleEdgeSelect(edge.id),
+        style: {
+          ...(edge.style || {}),
+          stroke: isHighlighted ? "#10b981" : edge.style?.stroke,
+          strokeWidth: isHighlighted ? 3 : edge.style?.strokeWidth,
+          opacity: isPathFinding && !isHighlighted ? 0.2 : opacity,
+          transition: "all 1s ease",
+        },
+      };
+    });
+  }, [layoutedEdges, handleEdgeSelect, activeTooltipEdgeId, selectedPathEdges]);
 
   // تابع برای تعیین استایل نود بر اساس نوعش
   const getNodeStyle = useCallback((node: Node) => {
@@ -372,14 +404,14 @@ export default function Graph({ path }: GraphProps) {
       case "start":
         return {
           ...baseStyle,
-          backgroundColor: "#10b981", // سبز
+          backgroundColor: "#10b981",
           color: "white",
           borderColor: "#059669",
         };
       case "end":
         return {
           ...baseStyle,
-          backgroundColor: "#ef4444", // قرمز
+          backgroundColor: "#ef4444",
           color: "white",
           borderColor: "#dc2626",
         };
@@ -387,7 +419,7 @@ export default function Graph({ path }: GraphProps) {
       default:
         return {
           ...baseStyle,
-          backgroundColor: "#3b82f6", // آبی
+          backgroundColor: "#3b82f6",
           color: "white",
           borderColor: "#2563eb",
         };
@@ -395,17 +427,33 @@ export default function Graph({ path }: GraphProps) {
   }, []);
 
   const nodesForRender = useMemo(() => {
-    return layoutedNodes.map((node) => ({
-      ...node,
-      data: {
-        ...node.data,
+    const isHighlighting = selectedPathNodes.size > 0;
+    return layoutedNodes.map((node) => {
+      const isHighlighted = selectedPathNodes.has(node.id);
+      const isStartOrEnd =
+        node.id === pathStartNodeId || node.id === pathEndNodeId;
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          label: node.data?.label || node.id,
+        },
+        style: {
+          ...getNodeStyle(node),
+          opacity: isHighlighting && !isHighlighted ? 0.2 : 1,
+          boxShadow: isStartOrEnd ? "0 0 10px 3px #ef4444" : "none",
+          transition: "all 0.3s ease",
+        },
         label: node.data?.label || node.id,
-      },
-      style: getNodeStyle(node),
-      // اضافه کردن ویژگی label برای نمایش درست در ReactFlow
-      label: node.data?.label || node.id,
-    }));
-  }, [layoutedNodes, getNodeStyle]);
+      };
+    });
+  }, [
+    layoutedNodes,
+    getNodeStyle,
+    selectedPathNodes,
+    pathStartNodeId,
+    pathEndNodeId,
+  ]);
 
   const CustomEdgeLabel = ({
     text,
@@ -462,14 +510,14 @@ export default function Graph({ path }: GraphProps) {
         className="nodrag nopan" // این کلاس‌ها باعث می‌شوند که دراگ و پن گراف غیرفعال شود
       >
         <div>
-          <strong>مبدا:</strong> {data.Source_Activity}
+          <strong>از :</strong> {data.Source_Activity}
         </div>
         <div>
-          <strong>مقصد:</strong> {data.Target_Activity}
+          <strong>تا :</strong> {data.Target_Activity}
         </div>
         <hr style={{ margin: "4px 0", borderColor: "rgba(255,255,255,0.3)" }} />
         <div>
-          <strong>وزن (تعداد):</strong> {data.Case_Count}
+          <strong>تعداد : </strong> {data.Weight_Value}
         </div>
         <div>
           <strong>میانگین زمان:</strong> {data.Tooltip_Mean_Time}
@@ -482,20 +530,17 @@ export default function Graph({ path }: GraphProps) {
   };
 
   const StyledSmoothStepEdge = (props: EdgeProps) => {
-    // id و data را از props بگیرید
     const { id, data, label, style, ...rest } = props;
     const [edgePath, labelX, labelY] = getSmoothStepPath(props);
-    // تابع onEdgeSelect را از آبجکت data استخراج کنید
     const { onEdgeSelect, isTooltipVisible } = data || {};
+
     const handleClick = () => {
-      // اگر تابع وجود داشت، آن را با id همین یال فراخوانی کنید
       if (onEdgeSelect && typeof onEdgeSelect === "function") {
         onEdgeSelect(id);
       }
     };
 
     return (
-      // یال را درون یک گروه SVG قرار دهید تا قابل کلیک شود
       <>
         <g onClick={handleClick} style={{ cursor: "pointer" }}>
           <DefaultSmoothStepEdge
@@ -522,7 +567,7 @@ export default function Graph({ path }: GraphProps) {
             />
             {isTooltipVisible && data && (
               <EdgeTooltip
-                data={data}
+                data={data as TooltipData}
                 style={{
                   transform: `translate(-50%, -120%) translate(${labelX}px, ${labelY}px)`,
                 }}
@@ -534,152 +579,303 @@ export default function Graph({ path }: GraphProps) {
     );
   };
 
+  const onNodesChange = useCallback((changes: NodeChange[]) => {
+    setLayoutedNodes((nds) => applyNodeChanges(changes, nds));
+  }, []);
+
+  const closeNodeTooltip = () => {
+    setCardContentFlag(null);
+    setNodeTooltipTitle(null); // vvv کد جدید از اینجا شروع می‌شود vvv
+
+    // ۱. تمام نودها را از حالت انتخاب خارج کن
+    setLayoutedNodes((nds) => nds.map((n) => ({ ...n, selected: false })));
+
+    // ۲. تمام یال‌ها را به استایل اصلی برگردان
+    setLayoutedEdges((prevEdges) =>
+      prevEdges.map((edge) => {
+        const originalStroke =
+          (edge.data as any)?.originalStroke ||
+          (edge.style?.stroke?.includes("rgba")
+            ? edge.style.stroke
+            : edge.style?.stroke || "#3b82f6");
+        const originalStrokeWidth =
+          (edge.data as any)?.originalStrokeWidth || 2;
+        const originalOpacity = originalStroke.includes("rgba")
+          ? parseFloat(originalStroke.split(",")[3])
+          : 1;
+
+        return {
+          ...edge,
+          selected: false,
+          style: {
+            ...(edge.style || {}),
+            stroke: originalStroke,
+            strokeWidth: originalStrokeWidth,
+            strokeOpacity: originalOpacity,
+          },
+        };
+      })
+    );
+  };
+
+  const NodeTooltip = () => {
+    return (
+      <>
+        <CardHeader className="text-lg font-bold flex gap-x-2">
+          <Button
+            isIconOnly
+            color="danger"
+            size="sm"
+            variant="light"
+            onPress={closeNodeTooltip}
+          >
+            <img src={closeIcon} width={25} alt="" />
+          </Button>
+          <p>یال های خارج شده از {nodeTooltipTitle}</p>
+        </CardHeader>
+        <CardBody className="text-right">
+          {nodeTooltipData.length === 0 ? (
+            <p>هیچ یالی وجود ندارد.</p>
+          ) : (
+            nodeTooltipData.map((item, index) => (
+              <div key={index}>
+                <div className="py-2">
+                  <p>یال به: {item.targetLabel}</p>
+                  {item.weight !== "N/A" && <p>تعداد: {item.weight}</p>}
+                </div>
+                {index !== nodeTooltipData.length - 1 && <Divider />}
+              </div>
+            ))
+          )}
+        </CardBody>
+      </>
+    );
+  };
+
+  const PathfindingCard = ({
+    startNodeId,
+    endNodeId,
+    paths,
+    allNodes,
+    onSelectPath,
+    onClose,
+    selectedIndex,
+  }: {
+    startNodeId: string | null;
+    endNodeId: string | null;
+    paths: Path[];
+    allNodes: Node[];
+    onSelectPath: (path: Path, index: number) => void;
+    onClose: () => void;
+    selectedIndex: number | null;
+  }) => {
+    const getNodeLabel = (id: string) =>
+      allNodes.find((n) => n.id === id)?.data?.label || id;
+
+    return (
+      <>
+        <CardHeader className="text-lg font-bold flex gap-x-2">
+          <Button
+            isIconOnly
+            color="danger"
+            size="sm"
+            variant="light"
+            onPress={onClose}
+          >
+            <img src={closeIcon} width={25} alt="Close" />
+          </Button>
+          <p>یافتن مسیر</p>
+        </CardHeader>
+        <CardBody className="text-right w-[500px]">
+          {!startNodeId && <p>. لطفاً نود شروع را روی گراف انتخاب کنید...</p>}
+          {startNodeId && !endNodeId && (
+            <>
+              <p>
+                نود شروع: <strong>{getNodeLabel(startNodeId)}</strong>
+              </p>
+              <p> لطفاً نود پایان را روی گراف انتخاب کنید...</p>
+            </>
+          )}
+          {startNodeId && endNodeId && (
+            <div>
+              <p>
+                <strong>{paths.length}</strong> مسیر از{" "}
+                <strong>{getNodeLabel(startNodeId)}</strong> به{" "}
+                <strong>{getNodeLabel(endNodeId)}</strong> یافت شد:
+              </p>
+              <Divider className="my-2" />
+              {paths.length === 0 ? (
+                <p>هیچ مسیر مستقیمی یافت نشد.</p>
+              ) : (
+                <div className="flex gap-x-2">
+                  <Accordion className="p-0" variant="splitted" isCompact>
+                    {paths.map((path, index) => (
+                      <AccordionItem
+                        className={`shadow-none ${selectedIndex === index ? "bg-success/20" : "bg-default/40"}`}
+                        classNames={{
+                          indicator: "cursor-pointer",
+                        }}
+                        key={index}
+                        title={`مسیر ${index + 1} ( دارای ${path.nodes.length - 2} راس و ${path.edges.length} یال)`}
+                      >
+                        {/* <p className="text-xs text-gray-500 rtl">
+                          {path.nodes.map(getNodeLabel).join(" → ")}{" "}
+                        </p> */}
+                        {path.nodes.map((id, index) => (
+                          <p
+                            key={index}
+                            className="text-sm text-gray-500 leading-6"
+                          >{`${index} - ${getNodeLabel(id)}`}</p>
+                        ))}
+                      </AccordionItem>
+                    ))}
+                  </Accordion>
+                  <div className="flex flex-col gap-y-2">
+                    {paths.map((path, index) => (
+                      <Tooltip
+                        content={`مشخص کردن مسیر ${index + 1}`}
+                        showArrow
+                        key={index}
+                      >
+                        <Button
+                          isIconOnly
+                          color={
+                            selectedIndex === index ? "success" : "default"
+                          }
+                          variant="flat"
+                          onPress={() => onSelectPath(path, index)}
+                        >
+                          <img src={displayIcon} alt="" width={20} />
+                        </Button>
+                      </Tooltip>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </CardBody>
+      </>
+    );
+  };
+
+  const findAllPaths = (startId: string, endId: string): Path[] => {
+    const allPaths: Path[] = [];
+    const stack: Array<[string, string[], string[]]> = [
+      [startId, [startId], []],
+    ];
+
+    while (stack.length > 0) {
+      const [currentNodeId, currentPathNodes, currentPathEdges] = stack.pop()!;
+
+      if (currentNodeId === endId) {
+        // به مقصد رسیدیم. این مسیر کامل را به لیست اضافه کن
+        allPaths.push({ nodes: currentPathNodes, edges: currentPathEdges });
+        continue;
+      }
+
+      const outgoingEdges = allEdges.filter((e) => e.source === currentNodeId);
+
+      for (const edge of outgoingEdges) {
+        const neighborId = edge.target;
+        if (!currentPathNodes.includes(neighborId)) {
+          stack.push([
+            neighborId,
+            [...currentPathNodes, neighborId],
+            [...currentPathEdges, edge.id],
+          ]);
+        }
+      }
+    }
+    return allPaths; // لیست تمام مسیرها را برگردان
+  };
+
   return (
-    <div
-      className="grid grid-cols-12 overflow-hidden"
-      style={{ width: "100%", height: "100vh" }}
-    >
-      <div className="col-span-10">
-        {isLoading ? (
-          <div className="flex justify-center items-center h-full">
-            <h2>{loadingMessage}</h2>
-          </div>
-        ) : layoutedNodes.length === 0 &&
-          selectedCaseIds.size > 0 &&
-          selectedNodeIds.size > 0 ? (
-          <div className="flex justify-center items-center h-full">
-            <h2>هیچ مسیری برای راس‌های انتخاب‌شده یافت نشد.</h2>
-          </div>
-        ) : layoutedNodes.length === 0 && selectedCaseIds.size > 0 ? (
-          <div className="flex justify-center items-center h-full">
-            <h2>هیچ مسیری برای CaseID های انتخاب‌شده یافت نشد.</h2>
-          </div>
-        ) : layoutedNodes.length === 0 ? (
-          <div className="flex justify-center items-center h-full">
-            <h2>
-              برای نمایش گراف، یک یا چند CaseID را از پنل فیلتر انتخاب کنید.
-            </h2>
-          </div>
-        ) : (
-          <div className="w-full h-full">
-            <ReactFlow
-              nodes={nodesForRender}
-              edges={edgesForRender}
-              fitView
-              edgeTypes={{
-                default: StyledSmoothStepEdge,
-              }}
-              defaultEdgeOptions={{
-                markerEnd: {
-                  type: MarkerType.ArrowClosed,
-
-                  height: 7,
-                },
-              }}
-              minZoom={0.05}
-              onPaneClick={() => setActiveTooltipEdgeId(null)}
-            >
-              <Background />
-              <Controls />
-            </ReactFlow>
-          </div>
-        )}
-      </div>
-      <div className="col-span-2 flex flex-col text-right p-3 m-2 border border-gray-300 rounded-lg h-[97vh]">
-        <p className="text-2xl font-bold">:فیلترها</p>
-        <hr className="my-4" />
-
-        {/* تب‌ها برای فیلترهای مختلف */}
-        <div className="flex border-b mb-4">
-          <button
-            className={`px-4 py-2 font-semibold ${
-              !selectedNodeIds.size
-                ? "border-b-2 border-blue-500 text-blue-600"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-            onClick={() => setSelectedNodeIds(new Set())}
-          >
-            Case ID ها ({allCaseIds.length})
-          </button>
-          <button
-            className={`px-4 py-2 font-semibold ${
-              selectedNodeIds.size > 0
-                ? "border-b-2 border-blue-500 text-blue-600"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-            onClick={() => {
-              if (selectedCaseIds.size === 0) {
-                alert("لطفاً ابتدا حداقل یک Case ID انتخاب کنید.");
-                return;
-              }
-              const relevantNodeIds = relevantNodesForFilter.map(
-                (node) => node.id,
-              );
-              setSelectedNodeIds(new Set(relevantNodeIds));
-            }}
-          >
-            راس‌ها ({allNodes.length})
-          </button>
+    <div className={`${className} w-full h-full`}>
+      {isLoading ? (
+        <div className="flex justify-center items-center h-full">
+          <h2>{loadingMessage}</h2>
         </div>
+      ) : layoutedNodes.length === 0 ? (
+        <div className="flex justify-center items-center h-full">
+          <h2>هیچ داده‌ای برای نمایش وجود ندارد.</h2>
+        </div>
+      ) : (
+        <div className="relative w-full h-full">
+          {cardContentFlag && (
+            <Card className="absolute right-2 z-100 p-2 max-h-[250px]">
+              {cardContentFlag === "nodeTooltip" && <NodeTooltip />}
+              {cardContentFlag === "pathfinding" && (
+                <PathfindingCard
+                  startNodeId={pathStartNodeId}
+                  endNodeId={pathEndNodeId}
+                  paths={foundPaths}
+                  allNodes={allNodes}
+                  onSelectPath={handleSelectPath}
+                  selectedIndex={selectedPathIndex}
+                  onClose={() => {
+                    // دکمه بستن کارت، کل عملیات را لغو می‌کند
+                    setIsPathFinding(false);
+                    setCardContentFlag(null);
+                    setPathStartNodeId(null);
+                    setPathEndNodeId(null);
+                    setFoundPaths([]);
+                    setSelectedPathNodes(new Set());
+                    setSelectedPathEdges(new Set());
+                    setSelectedPathIndex(null);
+                  }}
+                />
+              )}
+            </Card>
+          )}
 
-        {/* بخش فیلتر Case ID ها */}
-        {!selectedNodeIds.size && (
-          <>
-            <div className="flex items-center justify-between border-b pb-2 mb-2">
-              <label htmlFor="selectAll" className="font-semibold">
-                انتخاب همه Case ID ها
-              </label>
-              <input
-                type="checkbox"
-                id="selectAll"
-                checked={
-                  allCaseIds.length > 0 &&
-                  selectedCaseIds.size === allCaseIds.length
-                }
-                onChange={(e) => handleSelectAll(e.target.checked)}
-                className="w-5 h-5"
-              />
-            </div>
-            <div className="flex-grow overflow-y-auto">
-              <List
-                rowHeight={40}
-                rowCount={allCaseIds.length}
-                rowProps={{ allCaseIds }}
-                rowComponent={CaseIdFilter}
-              />
-            </div>
-          </>
-        )}
+          <Button
+            onPress={() => {
+              const nextIsPathFinding = !isPathFinding;
+              setIsPathFinding(nextIsPathFinding);
 
-        {/* بخش فیلتر راس‌ها */}
-        {selectedNodeIds.size > 0 && (
-          <>
-            <div className="flex items-center justify-between border-b pb-2 mb-2">
-              <label htmlFor="selectAllNodes" className="font-semibold">
-                انتخاب همه راس‌ها
-              </label>
-              <input
-                type="checkbox"
-                id="selectAllNodes"
-                checked={
-                  relevantNodesForFilter.length > 0 &&
-                  selectedNodeIds.size === relevantNodesForFilter.length
-                }
-                onChange={(e) => handleSelectAllNodes(e.target.checked)}
-                className="w-5 h-5"
-              />
-            </div>
-            <div className="flex-grow overflow-y-auto">
-              <List
-                rowHeight={40}
-                rowCount={relevantNodesForFilter.length}
-                rowProps={{ allNodes: relevantNodesForFilter }}
-                rowComponent={NodeFilter}
-              />
-            </div>
-          </>
-        )}
-      </div>
+              if (nextIsPathFinding) {
+                setCardContentFlag("pathfinding");
+                setActiveTooltipEdgeId(null);
+              } else {
+                setCardContentFlag(null);
+              }
+              setPathStartNodeId(null);
+              setPathEndNodeId(null);
+              setFoundPaths([]);
+              setSelectedPathNodes(new Set());
+              setSelectedPathEdges(new Set());
+              setSelectedPathIndex(null);
+            }}
+            color={isPathFinding ? "danger" : "success"}
+            className="absolute bottom-2 right-5 z-10"
+          >
+            {isPathFinding ? "لغو انتخاب مسیر" : "یافتن مسیر بین دو نود"}
+          </Button>
+          <ReactFlow
+            nodes={nodesForRender}
+            edges={edgesForRender}
+            fitView
+            nodesDraggable
+            edgeTypes={{
+              default: StyledSmoothStepEdge,
+            }}
+            defaultEdgeOptions={{
+              markerEnd: {
+                type: MarkerType.ArrowClosed,
+                height: 7,
+              },
+            }}
+            minZoom={0.05}
+            onNodesChange={onNodesChange}
+            nodesConnectable={false}
+            onNodeClick={handleNodeClick}
+          >
+            <Background />
+            <Controls />
+          </ReactFlow>
+        </div>
+      )}
     </div>
   );
 }

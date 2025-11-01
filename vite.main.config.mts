@@ -3,13 +3,22 @@ import { defineConfig } from "vite";
 // https://vitejs.dev/config
 export default defineConfig({
   build: {
+    outDir: "dist/main",
     lib: {
       entry: "src/main.ts",
-      formats: ["es"],
+      formats: ["cjs"],
       fileName: "main",
     },
     rollupOptions: {
-      external: [],
+      external: [
+        "electron",
+        "electron-squirrel-startup",
+        "path",
+        "fs",
+        "fs/promises",
+        "url",
+        "child_process",
+      ],
     },
   },
 });

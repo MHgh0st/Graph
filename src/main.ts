@@ -1,12 +1,22 @@
 import { app, BrowserWindow, ipcMain, dialog } from "electron";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "path";
 import started from "electron-squirrel-startup";
 import { spawn } from "child_process";
-import { readdir, stat, readFile } from "fs/promises";
+import { type FilterTypes } from "./types/types";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+// Define the electron API type
+declare global {
+  interface Window {
+    electronAPI: {
+      processData: (
+        formatType: "csv" | "pkl",
+        inputPath: string,
+        filters: FilterTypes
+      ) => Promise<any>;
+      openFileDialog: () => Promise<any>;
+    };
+  }
+}
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -19,8 +29,7 @@ const createWindow = () => {
     width: 800,
     height: 600,
     webPreferences: {
-      // preload: join(__dirname, `../preload/${MAIN_WINDOW_VITE_NAME}/preload.js`),
-      preload: join(__dirname, `../build/preload.js`),
+      preload: join(__dirname, "../preload/preload.cjs"),
       nodeIntegration: false, // Recommended for security
       contextIsolation: true, // Essential for security
       webSecurity: false, // Allow loading local files
@@ -28,21 +37,21 @@ const createWindow = () => {
   });
 
   // and load the index.html of the app.
-  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+  if (!app.isPackaged && MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
-    mainWindow.loadFile(
-      join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`)
-    );
+    mainWindow.loadFile(join(__dirname, "../renderer/index.html"));
   }
 
   // Open the DevTools.
   mainWindow.webContents.openDevTools();
 };
 
-// این تابع باید توسط Electron IPC (Invoke) فراخوانی شود
-async function runPythonScript(formatType: "csv" | "pkl", inputPath: string) {
-  // 1. تعیین مسیر فایل .exe پایتون بر اساس محیط
+async function runPythonScript(
+  formatType: "csv" | "pkl",
+  inputPath: string,
+  filters: FilterTypes
+) {
   let PYTHON_EXE_PATH;
 
   if (app.isPackaged) {
@@ -59,18 +68,53 @@ async function runPythonScript(formatType: "csv" | "pkl", inputPath: string) {
   // ... بقیه منطق تابع runPythonScript ...
   return new Promise((resolve, reject) => {
     // 2. تنظیم آرگومان ها برای پایتون
-    const args = ["--format", formatType, "--input-path", inputPath];
+    const args = [
+      "--format",
+      formatType,
+      "--input-path",
+      inputPath,
+      "--start-date",
+      filters.dateRange.start,
+      "--end-date",
+      filters.dateRange.end,
+      "--weight-metric",
+      filters.weightFilter,
+      "--time-unit",
+      filters.timeUnitFilter,
+    ];
 
-    // 3. اجرای پروسه فرزند
-    // ⚠️ مهم: اکنون از PYTHON_EXE_PATH استفاده می کنیم
-    const pythonProcess = spawn(PYTHON_EXE_PATH, args);
-    // ... بقیه منطق (stdout, stderr, close)
+    if (filters.minCaseCount != undefined) {
+      args.push("--min-cases", filters.minCaseCount.toString());
+    }
+
+    if (filters.maxCaseCount != undefined) {
+      args.push("--max-cases", filters.maxCaseCount.toString());
+    }
+
+    if (filters.meanTimeRange.min != null) {
+      args.push("--min-mean-time", filters.meanTimeRange.min.toString());
+    }
+
+    if (filters.meanTimeRange.max != null) {
+      args.push("--max-mean-time", filters.meanTimeRange.max.toString());
+    }
+
+    const pythonProcess = spawn(PYTHON_EXE_PATH, args, {
+      env: {
+        ...process.env,
+        PYTHONUTF8: "1",
+        PYTHONIOENCODING: "utf-8:replace",
+      },
+    });
 
     let output = "";
     let errorOutput = "";
 
+    pythonProcess.stdout.setEncoding("utf8");
+    pythonProcess.stderr.setEncoding("utf8");
+
     pythonProcess.stdout.on("data", (data) => {
-      output += data.toString().trim();
+      output += data.toString();
     });
 
     pythonProcess.stderr.on("data", (data) => {
@@ -80,9 +124,20 @@ async function runPythonScript(formatType: "csv" | "pkl", inputPath: string) {
     pythonProcess.on("close", (code) => {
       if (code !== 0) {
         const errMsg = errorOutput || `Python script exited with code ${code}.`;
+        console.error("Python Stderr:", errorOutput);
         return reject(new Error(errMsg));
       }
-      resolve(output);
+      try {
+        // رشته JSON دریافت شده را مستقیماً parse کن
+        const jsonData = JSON.parse(output);
+        resolve(jsonData);
+      } catch (parseError) {
+        reject(
+          new Error(
+            `Failed to parse Python script output as JSON: ${parseError.message}`
+          )
+        );
+      }
     });
 
     pythonProcess.on("error", (err) => {
@@ -119,10 +174,14 @@ app.on("activate", () => {
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and import them here.
-ipcMain.handle("process-data", async (event, formatType, inputPath) => {
-  const outputPath = await runPythonScript(formatType, inputPath);
-  return outputPath;
-});
+ipcMain.handle(
+  "process-data",
+  async (event, formatType, inputPath, filters) => {
+    console.log("filters: ", filters);
+    const outputPath = await runPythonScript(formatType, inputPath, filters);
+    return outputPath;
+  }
+);
 
 // Handle file dialog requests from the renderer process
 ipcMain.handle("open-file-dialog", async () => {
@@ -134,69 +193,4 @@ ipcMain.handle("open-file-dialog", async () => {
     ],
   });
   return result;
-});
-
-// Handle reading processed files from processed_data directory
-ipcMain.handle("read-processed-files", async () => {
-  try {
-    const processedDataPath = app.isPackaged
-      ? join(process.resourcesPath, "processed_data")
-      : join(app.getAppPath(), "processed_data");
-
-    const files = await readdir(processedDataPath);
-    const jsonFiles = files.filter((file) => file.endsWith(".json"));
-
-    const processedFiles = await Promise.all(
-      jsonFiles.map(async (file) => {
-        const filePath = join(processedDataPath, file);
-        const stats = await stat(filePath);
-
-        // Extract date from filename (format: graph_data_YYYYMMDD_HHMMSS.json)
-        const dateMatch = file.match(/graph_data_(\d{8})_(\d{6})\.json/);
-        const date = dateMatch
-          ? new Date(
-              dateMatch[1].substring(0, 4) +
-                "-" +
-                dateMatch[1].substring(4, 6) +
-                "-" +
-                dateMatch[1].substring(6, 8) +
-                " " +
-                dateMatch[2].substring(0, 2) +
-                ":" +
-                dateMatch[2].substring(2, 4) +
-                ":" +
-                dateMatch[2].substring(4, 6)
-            ).toLocaleString("fa-IR")
-          : "نامشخص";
-
-        return {
-          name: file,
-          path: filePath,
-          date: date,
-          size: (stats.size / 1024).toFixed(2) + " KB",
-        };
-      })
-    );
-
-    // Sort by creation date (newest first)
-    processedFiles.sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
-
-    return processedFiles;
-  } catch (error) {
-    console.error("Error reading processed files:", error);
-    return [];
-  }
-});
-
-// Handle reading JSON files
-ipcMain.handle("read-json-file", async (event, filePath) => {
-  try {
-    const fileContent = await readFile(filePath, "utf8");
-    return JSON.parse(fileContent);
-  } catch (error) {
-    console.error("Error reading JSON file:", error);
-    throw new Error(`Failed to read JSON file: ${error.message}`);
-  }
 });

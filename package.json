@@ -3,7 +3,7 @@
   "productName": "electron",
   "version": "1.0.0",
   "description": "My Electron application description",
-  "main": ".vite/build/main.js",
+  "main": "dist/main/main.cjs",
   "type": "module",
   "config": {
     "forge": "./forge.config.mts"
@@ -13,7 +13,10 @@
     "package": "electron-forge package",
     "make": "electron-forge make",
     "publish": "electron-forge publish",
-    "lint": "eslint --ext .ts,.tsx ."
+    "lint": "eslint --ext .ts,.tsx .",
+    "build:vite": "vite build --config vite.renderer.config.mts && vite build --config vite.main.config.mts && vite build --config vite.preload.config.mts",
+    "build:electron": "electron-builder --win portable --x64",
+    "build": "bun run build:vite && bun run build:electron"
   },
   "keywords": [],
   "author": {
@@ -26,6 +29,30 @@
       "electron",
       "electron-winstaller"
     ]
+  },
+  "build": {
+    "appId": "com.example.ProcessMiningGraph",
+    "productName": "Process Mining Graph",
+    "files": [
+      "dist/**"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/processor.exe",
+        "to": "processor.exe"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "src/assets/Icon.ico"
+    }
   },
   "devDependencies": {
     "@electron-forge/cli": "^7.10.2",
@@ -47,16 +74,28 @@
     "eslint": "^8.57.1",
     "eslint-plugin-import": "^2.32.0",
     "typescript": "~4.5.5",
-    "vite": "^5.4.20"
+    "vite": "^5.4.20",
+    "electron-builder": "^26.0.12"
   },
   "dependencies": {
     "@dagrejs/dagre": "^1.1.5",
+    "@heroui/accordion": "^2.2.24",
+    "@heroui/button": "^2.2.27",
+    "@heroui/card": "^2.2.25",
     "@heroui/checkbox": "^2.3.27",
+    "@heroui/date-picker": "^2.3.28",
+    "@heroui/divider": "^2.2.20",
+    "@heroui/form": "^2.1.27",
+    "@heroui/number-input": "^2.0.18",
+    "@heroui/select": "^2.4.28",
     "@heroui/system": "^2.4.23",
     "@heroui/theme": "^2.4.23",
+    "@heroui/tooltip": "^2.2.24",
+    "@internationalized/date": "^3.10.0",
     "@tailwindcss/vite": "^4.1.14",
     "@xyflow/react": "^12.8.6",
     "electron-squirrel-startup": "^1.0.1",
+    "elkjs": "^0.11.0",
     "framer-motion": "^12.23.24",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
