@@ -4,6 +4,7 @@ interface GraphDataItem {
   Source_Activity: string;
   Target_Activity: string;
   // Case_Count: number;
+  Mean_Duration_Seconds: number;
   Tooltip_Total_Time: string;
   Tooltip_Mean_Time: string;
   Weight_Value: number;
