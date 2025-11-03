@@ -1,10 +1,6 @@
 import { useState, useCallback } from "react";
 import { Node, Edge } from "@xyflow/react";
-
-interface Path {
-  nodes: string[];
-  edges: string[];
-}
+import type { Path } from "src/types/types";
 
 export const useGraphInteraction = (
   allNodes: Node[],
@@ -35,6 +31,24 @@ export const useGraphInteraction = (
   const [selectedPathIndex, setSelectedPathIndex] = useState<number | null>(
     null
   );
+
+  const calculatePathDuration = (path: Path) => {
+    let totalDuration = 0;
+    let edgeCount = 0;
+
+    path.edges.forEach((edgeId) => {
+      const edge = allEdges.find((e) => e.id === edgeId);
+      if (edge && edge.data?.Mean_Duration_Seconds) {
+        totalDuration += edge.data.Mean_Duration_Seconds;
+        edgeCount++;
+      }
+    });
+
+    return {
+      totalDuration,
+      averageDuration: edgeCount > 0 ? totalDuration / edgeCount : 0,
+    };
+  };
 
   const handleEdgeSelect = useCallback(
     (edgeId: string) => {
@@ -269,5 +283,6 @@ export const useGraphInteraction = (
     setIsPathFinding,
     setCardContentFlag,
     resetPathfinding,
+    calculatePathDuration,
   };
 };

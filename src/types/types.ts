@@ -6,3 +6,10 @@ export interface FilterTypes {
   weightFilter: "cases" | "mean_time";
   timeUnitFilter: "s" | "m" | "h" | "d" | "w";
 }
+
+export interface Path {
+  nodes: string[];
+  edges: string[];
+  totalDuration?: number;
+  averageDuration?: number;
+}

@@ -1,4 +1,4 @@
-import { Node } from "@xyflow/react";
+import { Edge, Node } from "@xyflow/react";
 import { CardHeader, CardBody } from "@heroui/card";
 import { Divider } from "@heroui/divider";
 import { Button } from "@heroui/button";
@@ -6,11 +6,7 @@ import { Accordion, AccordionItem } from "@heroui/accordion";
 import { Tooltip } from "@heroui/tooltip";
 import closeIcon from "../../../assets/close-icon.svg";
 import displayIcon from "../../../assets/display-icon.svg";
-
-interface Path {
-  nodes: string[];
-  edges: string[];
-}
+import type { Path } from "src/types/types";
 
 interface PathfindingCardProps {
   startNodeId: string | null;
@@ -20,6 +16,10 @@ interface PathfindingCardProps {
   onSelectPath: (path: Path, index: number) => void;
   onClose: () => void;
   selectedIndex: number | null;
+  calculatePathDuration: (path: Path) => {
+    totalDuration: number;
+    averageDuration: number;
+  };
 }
 
 export const PathfindingCard = ({
@@ -30,9 +30,16 @@ export const PathfindingCard = ({
   onSelectPath,
   onClose,
   selectedIndex,
+  calculatePathDuration,
 }: PathfindingCardProps) => {
   const getNodeLabel = (id: string) =>
     allNodes.find((n) => n.id === id)?.data?.label || id;
+
+  const formatDuration = (seconds: number) => {
+    if (seconds < 60) return `${seconds.toFixed(1)} ثانیه`;
+    if (seconds < 3600) return `${(seconds / 60).toFixed(1)} دقیقه`;
+    return `${(seconds / 3600).toFixed(1)} ساعت`;
+  };
 
   return (
     <>
@@ -71,29 +78,38 @@ export const PathfindingCard = ({
             ) : (
               <div className="flex gap-x-2">
                 <Accordion className="p-0" variant="splitted" isCompact>
-                  {paths.map((path, index) => (
-                    <AccordionItem
-                      className={`shadow-none ${
-                        selectedIndex === index
-                          ? "bg-success/20"
-                          : "bg-default/40"
-                      }`}
-                      classNames={{
-                        indicator: "cursor-pointer",
-                      }}
-                      key={index}
-                      title={`مسیر ${index + 1} ( دارای ${
-                        path.nodes.length - 2
-                      } راس و ${path.edges.length} یال)`}
-                    >
-                      {path.nodes.map((id, index) => (
-                        <p
-                          key={index}
-                          className="text-sm text-gray-500 leading-6"
-                        >{`${index} - ${getNodeLabel(id)}`}</p>
-                      ))}
-                    </AccordionItem>
-                  ))}
+                  {paths.map((path, index) => {
+                    const duration = calculatePathDuration(path);
+
+                    return (
+                      <AccordionItem
+                        className={`shadow-none ${
+                          selectedIndex === index
+                            ? "bg-success/20"
+                            : "bg-default/40"
+                        }`}
+                        classNames={{
+                          indicator: "cursor-pointer",
+                        }}
+                        key={index}
+                        title={`مسیر ${index + 1} ( دارای ${
+                          path.nodes.length - 2
+                        } راس و ${path.edges.length} یال)`}
+                      >
+                        <div className="text-sm text-gray-500">
+                          میانگین زمان:{" "}
+                          {formatDuration(duration.averageDuration)} | کل زمان:{" "}
+                          {formatDuration(duration.totalDuration)}
+                        </div>
+                        {path.nodes.map((id, index) => (
+                          <p
+                            key={index}
+                            className="text-sm text-gray-500 leading-6"
+                          >{`${index} - ${getNodeLabel(id)}`}</p>
+                        ))}
+                      </AccordionItem>
+                    );
+                  })}
                 </Accordion>
                 <div className="flex flex-col gap-y-2">
                   {paths.map((path, index) => (

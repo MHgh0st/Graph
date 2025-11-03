@@ -53,6 +53,7 @@ export default function Graph({ data, className }: GraphProps) {
     setIsPathFinding,
     setCardContentFlag,
     resetPathfinding,
+    calculatePathDuration,
   } = useGraphInteraction(
     allNodes,
     layoutedEdges,
@@ -203,6 +204,7 @@ export default function Graph({ data, className }: GraphProps) {
                 onSelectPath={handleSelectPath}
                 selectedIndex={selectedPathIndex}
                 onClose={resetPathfinding}
+                calculatePathDuration={calculatePathDuration}
               />
             )}
           </Card>
