@@ -1,12 +1,13 @@
 import {
   getSmoothStepPath,
-  SmoothStepEdge as DefaultSmoothStepEdge,
+  BaseEdge,
   EdgeLabelRenderer,
   type EdgeProps,
+  Position,
 } from "@xyflow/react";
 import type { CSSProperties } from "react";
 
-// This interface might be moved to a shared types file later
+// این اینترفیس از قبل وجود داشت
 interface TooltipData {
   Source_Activity: string;
   Target_Activity: string;
@@ -15,6 +16,7 @@ interface TooltipData {
   Tooltip_Total_Time: string;
 }
 
+// کامپوننت CustomEdgeLabel (بدون تغییر)
 const CustomEdgeLabel = ({
   text,
   style,
@@ -44,6 +46,7 @@ const CustomEdgeLabel = ({
   </div>
 );
 
+// کامپوننت EdgeTooltip (بدون تغییر)
 const EdgeTooltip = ({
   data,
   style,
@@ -89,10 +92,68 @@ const EdgeTooltip = ({
   );
 };
 
+// کامپوننت اصلی StyledSmoothStepEdge (اصلاح شده برای حلقه)
 export const StyledSmoothStepEdge = (props: EdgeProps) => {
-  const { id, data, label, style, ...rest } = props;
-  const [edgePath, labelX, labelY] = getSmoothStepPath(props);
+  const {
+    id,
+    data,
+    label,
+    style,
+    source,
+    target,
+    sourceX,
+    sourceY,
+    markerEnd,
+  } = props;
+
   const { onEdgeSelect, isTooltipVisible } = data || {};
+  const isSelfLoop = source === target;
+
+  let edgePath: string;
+  let labelX: number;
+  let labelY: number;
+
+  if (isSelfLoop) {
+    // ابعاد و مرکز نود را از data بدهید تا مسیر همیشه بیرون بدنه بماند
+    const nodeW = (data as any)?.nodeWidth ?? 230;
+    const nodeH = (data as any)?.nodeHeight ?? 100;
+    const cx = (data as any)?.nodeCenterX ?? sourceX;
+    const cy = (data as any)?.nodeCenterY ?? sourceY;
+
+    // فاصلهٔ حلقه از بدنه و طول پله‌ها
+    const margin = (data as any)?.loopMargin ?? 24;
+    const offsetDown = (data as any)?.loopDown ?? 12;
+    const offsetUp = (data as any)?.loopUp ?? 12;
+
+    // خروجی از پایین، ورودی از بالا
+    const sx = cx; // خروج از پایین
+    const sy = cy + nodeH / 2 - 50;
+    const tx = cx; // ورود از بالا
+    const ty = cy - nodeH / 2;
+
+    // مسیرِ دور زدن از سمت چپ
+    const leftX = cx - (nodeW / 2 + margin);
+
+    // نسخهٔ ساده با گوشه‌های تیز (می‌توانید بعداً Q/C اضافه کنید)
+    edgePath = [
+      `M ${sx},${sy}`, // شروع: پایین نود
+      `L ${sx},${sy + offsetDown}`, // کمی پایین
+      `L ${leftX},${sy + offsetDown}`, // به چپ
+      `L ${leftX},${ty - offsetUp}`, // بالا
+      `L ${tx},${ty - offsetUp}`, // به راست، نزدیک ورودی
+      `L ${tx},${ty}`, // ورود از بالا
+    ].join(" ");
+
+    // جای لیبل: وسطِ مسیرِ سمت چپ
+    labelX = leftX - 6;
+    labelY = cy;
+  } else {
+    // منطق برای یال‌های عادی (مثل قبل)
+    const [path, lx, ly] = getSmoothStepPath(props);
+    edgePath = path;
+    labelX = lx;
+    labelY = ly;
+  }
 
   const handleClick = () => {
     if (onEdgeSelect && typeof onEdgeSelect === "function") {
@@ -103,14 +164,15 @@ export const StyledSmoothStepEdge = (props: EdgeProps) => {
   return (
     <>
       <g onClick={handleClick} style={{ cursor: "pointer" }}>
-        <DefaultSmoothStepEdge
-          {...rest}
-          id={id}
+        <BaseEdge
+          path={edgePath}
+          markerEnd={markerEnd}
           style={{
             ...style,
             stroke: style?.stroke || "#3b82f6",
             strokeWidth: style?.strokeWidth || 2,
             strokeOpacity: style?.strokeOpacity ?? 1,
+            fill: "none", // مهم: مطمئن شوید داخل مسیر رنگی نمی‌شود
           }}
         />
       </g>

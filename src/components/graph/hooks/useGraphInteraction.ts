@@ -134,6 +134,7 @@ export const useGraphInteraction = (
 
   const handleNodeClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
+      setActiveTooltipEdgeId(null);
       if (!isPathFinding) {
         const nodeLabel = (node.data?.label as string) || (node.id as string);
         setNodeTooltipData([]);
@@ -264,6 +265,11 @@ export const useGraphInteraction = (
     setSelectedPathIndex(null);
   };
 
+  const onPaneClick = useCallback(() => {
+    setActiveTooltipEdgeId(null); // تولتیپ یال فعال را می‌بندد
+    closeNodeTooltip(); // تولتیپ نود (کارت) را هم می‌بندد
+  }, [closeNodeTooltip]);
+
   return {
     activeTooltipEdgeId,
     cardContentFlag,
@@ -284,5 +290,6 @@ export const useGraphInteraction = (
     setCardContentFlag,
     resetPathfinding,
     calculatePathDuration,
+    onPaneClick,
   };
 };

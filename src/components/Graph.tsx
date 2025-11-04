@@ -63,6 +63,7 @@ export default function Graph({ data, className }: GraphProps) {
     setCardContentFlag,
     resetPathfinding,
     calculatePathDuration,
+    onPaneClick,
   } = useGraphInteraction(
     allNodes,
     layoutedEdges,
@@ -278,6 +279,7 @@ export default function Graph({ data, className }: GraphProps) {
           onNodesChange={onNodesChange}
           nodesConnectable={false}
           onNodeClick={handleNodeClick}
+          onPaneClick={onPaneClick}
         >
           <Background />
           <Controls />
