@@ -13,3 +13,9 @@ export interface Path {
   totalDuration?: number;
   averageDuration?: number;
 }
+
+export interface PaletteOption {
+  key: string;
+  label: string;
+  gradient: string;
+}

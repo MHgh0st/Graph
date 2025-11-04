@@ -17,6 +17,11 @@ import { useGraphInteraction } from "./graph/hooks/useGraphInteraction";
 import { StyledSmoothStepEdge } from "./graph/ui/StyledSmoothStepEdge";
 import { NodeTooltip } from "./graph/ui/NodeTooltip";
 import { PathfindingCard } from "./graph/ui/PathfindingCard";
+import ColorPaletteCard from "./graph/ui/ColorPaletteCard";
+import { paletteOptions } from "../constants/colorPalettes";
+import { useState } from "react";
+import ColorIcon from "../assets/color-icon.svg";
+import CloseIcon from "../assets/close-icon.svg";
 
 interface GraphProps {
   data: any[] | null;
@@ -24,6 +29,10 @@ interface GraphProps {
 }
 
 export default function Graph({ data, className }: GraphProps) {
+  const [showColorPaletteCard, setShowColorPaletteCard] =
+    useState<boolean>(false);
+  const [selectedColorPalette, setSelectedColorPalette] =
+    useState<string>("default");
   const {
     allNodes,
     layoutedNodes,
@@ -32,7 +41,7 @@ export default function Graph({ data, className }: GraphProps) {
     loadingMessage,
     setLayoutedNodes,
     setLayoutedEdges,
-  } = useGraphLayout(data);
+  } = useGraphLayout(data, selectedColorPalette);
 
   const {
     activeTooltipEdgeId,
@@ -155,7 +164,7 @@ export default function Graph({ data, className }: GraphProps) {
           stroke: isHighlighted ? "#10b981" : edge.style?.stroke,
           strokeWidth: isHighlighted ? 3 : edge.style?.strokeWidth,
           opacity: isPathFinding && !isHighlighted ? 0.2 : opacity,
-          transition: "all 1s ease",
+          transition: "all 0.3s ease",
         },
       };
     });
@@ -210,21 +219,47 @@ export default function Graph({ data, className }: GraphProps) {
           </Card>
         )}
 
-        <Button
-          onPress={() => {
-            const nextIsPathFinding = !isPathFinding;
-            setIsPathFinding(nextIsPathFinding);
-            if (nextIsPathFinding) {
-              setCardContentFlag("pathfinding");
-            } else {
-              resetPathfinding();
-            }
-          }}
-          color={isPathFinding ? "danger" : "success"}
-          className="absolute bottom-2 right-5 z-10"
-        >
-          {isPathFinding ? "لغو انتخاب مسیر" : "یافتن مسیر بین دو نود"}
-        </Button>
+        <div className="absolute bottom-2 right-5 z-10 flex gap-x-2">
+          <Button
+            onPress={() => {
+              const nextIsPathFinding = !isPathFinding;
+              setIsPathFinding(nextIsPathFinding);
+              if (nextIsPathFinding) {
+                setCardContentFlag("pathfinding");
+              } else {
+                resetPathfinding();
+              }
+            }}
+            color={isPathFinding ? "danger" : "success"}
+          >
+            {isPathFinding ? "لغو انتخاب مسیر" : "یافتن مسیر بین دو نود"}
+          </Button>
+          <Button
+            isIconOnly
+            variant="flat"
+            color={showColorPaletteCard ? "danger" : "primary"}
+            onPress={() => {
+              setShowColorPaletteCard(!showColorPaletteCard);
+            }}
+          >
+            <img
+              src={showColorPaletteCard ? CloseIcon : ColorIcon}
+              alt=""
+              width={25}
+            />
+          </Button>
+        </div>
+        {showColorPaletteCard && (
+          <ColorPaletteCard
+            className="absolute bottom-2 left-15 z-10"
+            options={paletteOptions}
+            value={selectedColorPalette}
+            onChange={(value) => {
+              setSelectedColorPalette(value);
+            }}
+            label="انتخاب طیف رنگی یال ها"
+          />
+        )}
         <ReactFlow
           nodes={nodesForRender}
           edges={edgesForRender}

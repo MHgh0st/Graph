@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Node, Edge } from "@xyflow/react";
 import ELK from "elkjs/lib/elk.bundled.js";
 import LayoutWorker from "../../../utils/layout-worker.ts?worker";
+import { colorPalettes } from "../../../constants/colorPalettes";
 
 const elk = new ELK();
 
@@ -19,7 +20,7 @@ const layoutOptions = {
   "spacing.nodeNodeBetweenLayers": "50",
 };
 
-export const useGraphLayout = (data: any[] | null) => {
+export const useGraphLayout = (data: any[] | null, colorPaletteKey: string) => {
   const [allNodes, setAllNodes] = useState<Node[]>([]);
   const [allEdges, setAllEdges] = useState<Edge[]>([]);
   const [layoutedNodes, setLayoutedNodes] = useState<Node[]>([]);
@@ -107,15 +108,50 @@ export const useGraphLayout = (data: any[] | null) => {
           };
         });
 
+        let minWeight = Infinity;
+        let maxWeight = -Infinity;
+        allEdges.forEach((edge) => {
+          const weight = edge.data?.Weight_Value || 0;
+          if (weight < minWeight) minWeight = weight;
+          if (weight > maxWeight) maxWeight = weight;
+        });
+
+        // جلوگیری از تقسیم بر صفر اگر همه وزن‌ها یکسان باشند
+        if (minWeight === maxWeight) {
+          maxWeight = minWeight + 1;
+        }
+
+        // ۲. گرفتن تابع رنگ بر اساس کلید پالت
+        const getEdgeColor =
+          colorPalettes[colorPaletteKey] || colorPalettes.default;
+
+        // ۳. مپ کردن یال‌ها و اعمال رنگ
+        const coloredEdges = allEdges.map((edge) => {
+          const weight = edge.data?.Weight_Value || 0;
+          const color = getEdgeColor(weight, minWeight, maxWeight);
+
+          return {
+            ...edge,
+            style: {
+              ...edge.style,
+              stroke: color, // رنگ استروک را اینجا ست می‌کنیم
+            },
+            data: {
+              ...edge.data,
+              originalStroke: color,
+            },
+          };
+        });
+
         setLayoutedNodes(newLayoutedNodes);
-        setLayoutedEdges(allEdges);
+        setLayoutedEdges(coloredEdges);
         setIsLoading(false);
       })
       .catch((e) => {
         console.error("Component: ELK layout failed:", e);
         setIsLoading(false);
       });
-  }, [allNodes, allEdges]);
+  }, [allNodes, allEdges, colorPaletteKey]);
 
   return {
     allNodes,
