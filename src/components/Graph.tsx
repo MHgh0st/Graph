@@ -55,6 +55,7 @@ export default function Graph({ data, className }: GraphProps) {
     selectedPathNodes,
     selectedPathEdges,
     selectedPathIndex,
+    isPathfindingLoading,
     handleEdgeSelect,
     handleSelectPath,
     handleNodeClick,
@@ -215,6 +216,7 @@ export default function Graph({ data, className }: GraphProps) {
                 selectedIndex={selectedPathIndex}
                 onClose={resetPathfinding}
                 calculatePathDuration={calculatePathDuration}
+                isLoading={isPathfindingLoading}
               />
             )}
           </Card>

@@ -1,6 +1,7 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Node, Edge } from "@xyflow/react";
 import type { Path } from "src/types/types";
+import PathFindingWorker from "../../../utils/pathFinding-worker?worker";
 
 export const useGraphInteraction = (
   allNodes: Node[],
@@ -8,6 +9,8 @@ export const useGraphInteraction = (
   setLayoutedNodes: React.Dispatch<React.SetStateAction<Node[]>>,
   setLayoutedEdges: React.Dispatch<React.SetStateAction<Edge[]>>
 ) => {
+  const workerRef = useRef<Worker | null>(null);
+
   const [activeTooltipEdgeId, setActiveTooltipEdgeId] = useState<string | null>(
     null
   );
@@ -31,6 +34,7 @@ export const useGraphInteraction = (
   const [selectedPathIndex, setSelectedPathIndex] = useState<number | null>(
     null
   );
+  const [isPathfindingLoading, setIsPathfindingLoading] = useState(false);
 
   const calculatePathDuration = (path: Path) => {
     let totalDuration = 0;
@@ -102,35 +106,40 @@ export const useGraphInteraction = (
     setSelectedPathIndex(index);
   };
 
-  const findAllPaths = (startId: string, endId: string): Path[] => {
-    const allPaths: Path[] = [];
-    const stack: Array<[string, string[], string[]]> = [
-      [startId, [startId], []],
-    ];
-
-    while (stack.length > 0) {
-      const [currentNodeId, currentPathNodes, currentPathEdges] = stack.pop()!;
-
-      if (currentNodeId === endId) {
-        allPaths.push({ nodes: currentPathNodes, edges: currentPathEdges });
-        continue;
-      }
-
-      const outgoingEdges = allEdges.filter((e) => e.source === currentNodeId);
-
-      for (const edge of outgoingEdges) {
-        const neighborId = edge.target;
-        if (!currentPathNodes.includes(neighborId)) {
-          stack.push([
-            neighborId,
-            [...currentPathNodes, neighborId],
-            [...currentPathEdges, edge.id],
-          ]);
-        }
-      }
+  const setupWorker = useCallback(() => {
+    // اگر ورکر قبلی وجود داشت (در حال اجرا بود)، آن را خاتمه بده
+    if (workerRef.current) {
+      workerRef.current.terminate();
+      console.log("Terminating previous worker.");
     }
-    return allPaths;
-  };
+
+    // ورکر جدید بساز
+    const worker = new PathFindingWorker();
+    workerRef.current = worker;
+
+    // به پیام‌های ورکر جدید گوش بده
+    worker.onmessage = (event: MessageEvent) => {
+      const { type, payload } = event.data;
+      if (type === "PATHS_FOUND") {
+        setFoundPaths(payload); // نتایج را در state بگذار
+        setIsPathfindingLoading(false); // لودینگ را تمام کن
+        console.log("Main Thread: Received paths from worker.");
+      }
+    };
+  }, [setFoundPaths, setIsPathfindingLoading]);
+
+  useEffect(() => {
+    setupWorker(); // ورکر را در اولین بارگذاری راه‌اندازی کن
+
+    // در زمان unmount شدن کامپوننت، ورکر را ببند
+    return () => {
+      workerRef.current?.terminate();
+    };
+  }, [setupWorker]);
+
+  useEffect(() => {
+    console.log("founded paths: ", foundPaths);
+  }, [foundPaths]);
 
   const handleNodeClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
@@ -201,8 +210,18 @@ export const useGraphInteraction = (
       if (pathStartNodeId && !pathEndNodeId && node.id !== pathStartNodeId) {
         const endId = node.id;
         setPathEndNodeId(endId);
-        const paths = findAllPaths(pathStartNodeId, endId);
-        setFoundPaths(paths);
+        setIsPathfindingLoading(true);
+        // const paths = findAllPaths(pathStartNodeId, endId);
+        // setFoundPaths(paths);
+
+        workerRef.current?.postMessage({
+          type: "FIND_ALL_PATHS",
+          payload: {
+            allEdges: allEdges, // +++ ( مطمئن شوید allEdges را به هوک پاس می‌دهید)
+            startNodeId: pathStartNodeId,
+            endNodeId: endId,
+          },
+        });
         setSelectedPathNodes(new Set([pathStartNodeId, endId]));
         setSelectedPathEdges(new Set());
         return;
@@ -221,6 +240,7 @@ export const useGraphInteraction = (
       allNodes,
       setLayoutedEdges,
       setLayoutedNodes,
+      allEdges,
     ]
   );
 
@@ -263,6 +283,8 @@ export const useGraphInteraction = (
     setSelectedPathNodes(new Set());
     setSelectedPathEdges(new Set());
     setSelectedPathIndex(null);
+    setIsPathfindingLoading(false);
+    setupWorker();
   };
 
   const onPaneClick = useCallback(() => {
@@ -282,6 +304,7 @@ export const useGraphInteraction = (
     selectedPathNodes,
     selectedPathEdges,
     selectedPathIndex,
+    isPathfindingLoading,
     handleEdgeSelect,
     handleSelectPath,
     handleNodeClick,

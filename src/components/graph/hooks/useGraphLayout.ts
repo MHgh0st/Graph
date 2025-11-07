@@ -40,7 +40,7 @@ export const useGraphLayout = (data: any[] | null, colorPaletteKey: string) => {
       if (type === "INITIAL_DATA_PROCESSED") {
         setAllNodes(payload.allNodes);
         setAllEdges(payload.allEdges);
-        setIsLoading(false);
+        // setIsLoading(false);
       }
     };
 

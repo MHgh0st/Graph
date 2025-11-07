@@ -1,5 +1,4 @@
 import { Button } from "@heroui/button";
-import { Card, CardHeader, CardBody } from "@heroui/card";
 import { Form } from "@heroui/form";
 import { DateRangePicker } from "@heroui/date-picker";
 import { NumberInput } from "@heroui/number-input";
@@ -91,116 +90,104 @@ export default function Filters({
 
   return (
     <>
-      <Card className={`${className} rounded-xl w-full h-full   `}>
-        <CardHeader>
-          <p className="text-2xl font-bold text-right">فیلتر ها</p>
-        </CardHeader>
-        <CardBody>
-          <Form
-            className="h-full flex- flex-col justify-between"
-            onSubmit={onSubmit}
-          >
-            <div className="w-full space-y-4" dir="ltr">
-              <DateRangePicker
-                dir="ltr"
-                label="انتخاب بازه زمانی"
-                labelPlacement="inside"
-                // visibleMonths={3}
-                showMonthAndYearPickers
-                isRequired
-                classNames={{
-                  label: "text-right",
+      <Form
+        className="h-full flex- flex-col justify-between"
+        onSubmit={onSubmit}
+      >
+        <div className="w-full space-y-4" dir="ltr">
+          <DateRangePicker
+            dir="ltr"
+            label="انتخاب بازه زمانی"
+            labelPlacement="inside"
+            // visibleMonths={3}
+            showMonthAndYearPickers
+            isRequired
+            classNames={{
+              label: "text-right",
+            }}
+            value={dateRange}
+            onChange={handleDateChange}
+          />
+          <div className="space-y-4" dir="rtl">
+            <NumberInput
+              label="حداقل تعداد پرونده ها را وارد کنید"
+              value={caseIdRange?.min}
+              onChange={(value) =>
+                setCaseIdRange((prev) => ({
+                  max: prev?.max,
+                  min: Number(value),
+                }))
+              }
+            />
+            <NumberInput
+              label="حداکثر تعداد پرونده ها را وارد کنید"
+              value={caseIdRange?.max}
+              onChange={(value) =>
+                setCaseIdRange((prev) => ({
+                  max: Number(value),
+                  min: prev?.min,
+                }))
+              }
+            />
+            <TimeFilterSection
+              title="حداقل زمان رسیدگی به پرونده ها:"
+              setTime={(time) => {
+                setMeanTimeRange((prev) => ({
+                  min: time,
+                  max: prev.max,
+                }));
+              }}
+            />
+            <TimeFilterSection
+              title="حداکثر زمان رسیدگی به پرونده ها:"
+              setTime={(time) => {
+                setMeanTimeRange((prev) => ({
+                  min: prev.min,
+                  max: time,
+                }));
+              }}
+            />
+            <div className="flex gap-x-2 w-full">
+              <Select
+                label="فیلتر وزن یال ها"
+                selectedKeys={new Set([weightFilter])}
+                onSelectionChange={(keys) => {
+                  const key = Array.from(keys)[0] as "cases" | "mean_time";
+                  setWeightFilter(key);
                 }}
-                value={dateRange}
-                onChange={handleDateChange}
-              />
-              <div className="space-y-4" dir="rtl">
-                <NumberInput
-                  label="حداقل تعداد پرونده ها را وارد کنید"
-                  value={caseIdRange?.min}
-                  onChange={(value) =>
-                    setCaseIdRange((prev) => ({
-                      max: prev?.max,
-                      min: Number(value),
-                    }))
-                  }
-                />
-                <NumberInput
-                  label="حداکثر تعداد پرونده ها را وارد کنید"
-                  value={caseIdRange?.max}
-                  onChange={(value) =>
-                    setCaseIdRange((prev) => ({
-                      max: Number(value),
-                      min: prev?.min,
-                    }))
-                  }
-                />
-                <TimeFilterSection
-                  title="حداقل زمان رسیدگی به پرونده ها:"
-                  setTime={(time) => {
-                    setMeanTimeRange((prev) => ({
-                      min: time,
-                      max: prev.max,
-                    }));
-                  }}
-                />
-                <TimeFilterSection
-                  title="حداکثر زمان رسیدگی به پرونده ها:"
-                  setTime={(time) => {
-                    setMeanTimeRange((prev) => ({
-                      min: prev.min,
-                      max: time,
-                    }));
-                  }}
-                />
-                <div className="flex gap-x-2 w-full">
-                  <Select
-                    label="فیلتر وزن یال ها"
-                    selectedKeys={new Set([weightFilter])}
-                    onSelectionChange={(keys) => {
-                      const key = Array.from(keys)[0] as "cases" | "mean_time";
-                      setWeightFilter(key);
-                    }}
-                  >
-                    {weightFilters.map((item) => (
-                      <SelectItem key={item.key}>{item.label}</SelectItem>
-                    ))}
-                  </Select>
-                  {weightFilter === "mean_time" && (
-                    <Select
-                      label="واحد زمان"
-                      selectedKeys={new Set([timeUnitFilter])}
-                      onSelectionChange={(keys) => {
-                        const key = Array.from(keys)[0] as
-                          | "s"
-                          | "m"
-                          | "h"
-                          | "d"
-                          | "w";
-                        setTimeUnitFilter(key);
-                      }}
-                    >
-                      {timeUnits.map((item) => (
-                        <SelectItem key={item.key}>{item.label}</SelectItem>
-                      ))}
-                    </Select>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="w-full">
-              <Button
-                fullWidth
-                color="primary"
-                type="submit"
-                isLoading={isLoading}
               >
-                اعمال فیلتر ها و پردازش داده
-              </Button>
+                {weightFilters.map((item) => (
+                  <SelectItem key={item.key}>{item.label}</SelectItem>
+                ))}
+              </Select>
+              {weightFilter === "mean_time" && (
+                <Select
+                  label="واحد زمان"
+                  selectedKeys={new Set([timeUnitFilter])}
+                  onSelectionChange={(keys) => {
+                    const key = Array.from(keys)[0] as
+                      | "s"
+                      | "m"
+                      | "h"
+                      | "d"
+                      | "w";
+                    setTimeUnitFilter(key);
+                  }}
+                >
+                  {timeUnits.map((item) => (
+                    <SelectItem key={item.key}>{item.label}</SelectItem>
+                  ))}
+                </Select>
+              )}
             </div>
-          </Form>
-        </CardBody>
-      </Card>
+          </div>
+        </div>
+        <div className="w-full">
+          <Button fullWidth color="primary" type="submit" isLoading={isLoading}>
+            اعمال فیلتر ها و پردازش داده
+          </Button>
+        </div>
+      </Form>
     </>
   );
 }
