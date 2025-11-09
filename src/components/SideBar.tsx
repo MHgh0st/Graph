@@ -1,12 +1,12 @@
-import { SlidersHorizontal, LineSquiggle } from "lucide-react";
+import { SlidersHorizontal, LineSquiggle, Palette } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 export default function SideBar({
   activeTab,
   onClickTab,
   className,
 }: {
-  activeTab: "Filter" | "Routing";
-  onClickTab: (name: "Filter" | "Routing") => void;
+  activeTab: "Filter" | "Routing" | "ColorPalette";
+  onClickTab: (name: "Filter" | "Routing" | "ColorPalette") => void;
   className?: string;
 }) {
   const SideBarButton = ({
@@ -16,7 +16,7 @@ export default function SideBar({
   }: {
     Icon?: LucideIcon;
     title?: string;
-    name: "Filter" | "Routing";
+    name: "Filter" | "Routing" | "ColorPalette";
   }) => {
     const isActive = activeTab === name;
     return (
@@ -41,7 +41,7 @@ export default function SideBar({
   const Tabs: {
     title: string;
     icon: LucideIcon;
-    name: "Filter" | "Routing";
+    name: "Filter" | "Routing" | "ColorPalette";
   }[] = [
     {
       title: "فیلتر ها",
@@ -52,6 +52,11 @@ export default function SideBar({
       title: "مسیریابی",
       icon: LineSquiggle,
       name: "Routing",
+    },
+    {
+      title: "پالت رنگی",
+      icon: Palette,
+      name: "ColorPalette",
     },
   ];
 

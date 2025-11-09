@@ -7,6 +7,7 @@ import TimeFilterSection from "./TimeFilterSection";
 import { DateValue } from "@internationalized/date";
 import { FilterTypes } from "../types/types";
 import { Select, SelectItem } from "@heroui/select";
+import PersianRangeDatePicker from "./RangeDatePicker";
 interface FiltersProps {
   className?: string;
   isLoading?: boolean;
@@ -95,7 +96,7 @@ export default function Filters({
         onSubmit={onSubmit}
       >
         <div className="w-full space-y-4" dir="ltr">
-          <DateRangePicker
+          {/* <DateRangePicker
             dir="ltr"
             label="انتخاب بازه زمانی"
             labelPlacement="inside"
@@ -107,6 +108,10 @@ export default function Filters({
             }}
             value={dateRange}
             onChange={handleDateChange}
+          /> */}
+          <PersianRangeDatePicker
+            onChange={handleDateChange}
+            placeholder={{ start: "از تاریخ", end: "تا تاریخ" }}
           />
           <div className="space-y-4" dir="rtl">
             <NumberInput

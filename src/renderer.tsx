@@ -11,25 +11,69 @@ import Graph from "./components/Graph";
 import Filters from "./components/Filters";
 import { FilterTypes } from "./types/types";
 import SideBar from "./components/SideBar";
+import { useGraphLayout } from "./components/graph/hooks/useGraphLayout";
+import { useGraphInteraction } from "./components/graph/hooks/useGraphInteraction";
+import { PathfindingCard } from "./components/graph/ui/PathfindingCard";
+import ColorPaletteCard from "./components/graph/ui/ColorPaletteCard";
+import { paletteOptions } from "./constants/colorPalettes";
 function App() {
   const [dataFilePath, setDataFilePath] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoadingRenderer, setIsLoadingRenderer] = useState<boolean>(false);
   const [step, setStep] = useState<number>(1);
   const [graphData, setGraphData] = useState<any[] | null>(null);
   const [sideBarActiveTab, setSideBarActiveTab] = useState<
-    "Filter" | "Routing"
+    "Filter" | "Routing" | "ColorPalette"
   >("Filter");
   const [isSideCardShow, setIsSideCardShow] = useState<boolean>(true);
+  const [selectedColorPalette, setSelectedColorPalette] =
+    useState<string>("default");
 
+  const {
+    allNodes,
+    layoutedNodes,
+    layoutedEdges,
+    isLoading,
+    loadingMessage,
+    setLayoutedNodes,
+    setLayoutedEdges,
+  } = useGraphLayout(graphData, selectedColorPalette);
+  const {
+    activeTooltipEdgeId,
+    cardContentFlag,
+    nodeTooltipTitle,
+    nodeTooltipData,
+    pathStartNodeId,
+    pathEndNodeId,
+    foundPaths,
+    selectedPathNodes,
+    selectedPathEdges,
+    selectedPathIndex,
+    isPathfindingLoading,
+    isPathFinding,
+    handleEdgeSelect,
+    handleSelectPath,
+    handleNodeClick,
+    closeNodeTooltip,
+    setIsPathFinding,
+    setCardContentFlag,
+    resetPathfinding,
+    calculatePathDuration,
+    onPaneClick,
+  } = useGraphInteraction(
+    allNodes,
+    layoutedEdges,
+    setLayoutedNodes,
+    setLayoutedEdges
+  );
   const submit = async (filters?: FilterTypes) => {
     switch (step) {
       case 1:
         setStep(2);
         break;
       case 2:
-        setIsLoading(true);
+        setIsLoadingRenderer(true);
         setGraphData(await ProcessData(dataFilePath, filters));
-        setIsLoading(false);
+        setIsLoadingRenderer(false);
         break;
     }
   };
@@ -37,6 +81,16 @@ function App() {
   useEffect(() => {
     console.log("graph data: ", graphData);
   }, [graphData]);
+
+  useEffect(() => {
+    if (sideBarActiveTab == "Routing" && graphData) {
+      setIsPathFinding(true);
+    } else {
+      setIsPathFinding(false);
+      resetPathfinding();
+    }
+  }, [sideBarActiveTab]);
+
   return (
     <>
       <HeroUIProvider locale="fa-IR">
@@ -68,17 +122,49 @@ function App() {
                     onPress={() => {
                       setIsSideCardShow(false);
                       setSideBarActiveTab(null);
+                      setIsPathFinding(false);
+                      resetPathfinding();
                     }}
                   >
                     <X size={20} />
                   </Button>
                   <p className="text-2xl font-bold">
-                    {sideBarActiveTab === "Filter" ? "فیلتر ها" : ""}
+                    {sideBarActiveTab === "Filter" && "فیلتر ها"}
+                    {sideBarActiveTab === "Routing" && "مسیر یابی بین دو یال"}
+                    {sideBarActiveTab === "ColorPalette" && "انتخاب ظیف رنگی"}
                   </p>
                 </CardHeader>
-                <CardBody>
-                  {sideBarActiveTab === "Filter" && (
-                    <Filters submit={submit} isLoading={isLoading} />
+                <CardBody className="text-right">
+                  {sideBarActiveTab === "Filter" ? (
+                    <Filters submit={submit} isLoading={isLoadingRenderer} />
+                  ) : sideBarActiveTab === "Routing" ? (
+                    graphData ? (
+                      <PathfindingCard
+                        startNodeId={pathStartNodeId}
+                        endNodeId={pathEndNodeId}
+                        paths={foundPaths}
+                        allNodes={allNodes}
+                        onSelectPath={handleSelectPath}
+                        selectedIndex={selectedPathIndex}
+                        calculatePathDuration={calculatePathDuration}
+                        isLoading={isPathfindingLoading}
+                        handleNodeClick={handleNodeClick}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex justify-center items-center text-center text-3xl font-bold leading-15">
+                        لطفا ابتدا داده ی گراف را از تب فیلتر ها انتخاب کنید.
+                      </div>
+                    )
+                  ) : (
+                    sideBarActiveTab === "ColorPalette" && (
+                      <ColorPaletteCard
+                        options={paletteOptions}
+                        value={selectedColorPalette}
+                        onChange={(value) => {
+                          setSelectedColorPalette(value);
+                        }}
+                      />
+                    )
                   )}
                 </CardBody>
               </Card>
@@ -86,13 +172,51 @@ function App() {
             <main
               className={`${isSideCardShow ? "col-span-16" : "col-span-22"} flex items-center justify-center`}
             >
-              {isLoading && <p>در حال پردازش داده‌ها، لطفاً منتظر بمانید...</p>}
-
-              {!isLoading && graphData && (
-                <Graph data={graphData} className="w-full h-full" />
+              {isLoadingRenderer && (
+                <p>در حال پردازش داده‌ها، لطفاً منتظر بمانید...</p>
               )}
 
-              {!isLoading && !graphData && (
+              {!isLoadingRenderer && graphData && (
+                <Graph
+                  className="w-full h-full"
+                  utils={{
+                    GraphLayout: {
+                      allNodes,
+                      layoutedNodes,
+                      layoutedEdges,
+                      isLoading,
+                      loadingMessage,
+                      setLayoutedNodes,
+                      setLayoutedEdges,
+                    },
+                    GraphInteraction: {
+                      activeTooltipEdgeId,
+                      cardContentFlag,
+                      nodeTooltipTitle,
+                      nodeTooltipData,
+                      pathStartNodeId,
+                      pathEndNodeId,
+                      foundPaths,
+                      selectedPathNodes,
+                      selectedPathEdges,
+                      selectedPathIndex,
+                      isPathfindingLoading,
+                      isPathFinding,
+                      handleEdgeSelect,
+                      handleSelectPath,
+                      handleNodeClick,
+                      closeNodeTooltip,
+                      setIsPathFinding,
+                      setCardContentFlag,
+                      resetPathfinding,
+                      calculatePathDuration,
+                      onPaneClick,
+                    },
+                  }}
+                />
+              )}
+
+              {!isLoadingRenderer && !graphData && (
                 <p>
                   برای مشاهده‌ی گراف، فیلترها را تنظیم کرده و دکمه "پردازش" را
                   بزنید.

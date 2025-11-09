@@ -4,73 +4,88 @@ import {
   Background,
   Controls,
   Node,
+  Edge,
   MarkerType,
   applyNodeChanges,
   NodeChange,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Card } from "@heroui/card";
-import { Button } from "@heroui/button";
 
-import { useGraphLayout } from "./graph/hooks/useGraphLayout";
-import { useGraphInteraction } from "./graph/hooks/useGraphInteraction";
 import { StyledSmoothStepEdge } from "./graph/ui/StyledSmoothStepEdge";
 import { NodeTooltip } from "./graph/ui/NodeTooltip";
-import { PathfindingCard } from "./graph/ui/PathfindingCard";
-import ColorPaletteCard from "./graph/ui/ColorPaletteCard";
-import { paletteOptions } from "../constants/colorPalettes";
-import { useState } from "react";
-import ColorIcon from "../assets/color-icon.svg";
-import CloseIcon from "../assets/close-icon.svg";
+import type { Path } from "src/types/types";
 
-interface GraphProps {
-  data: any[] | null;
-  className?: string;
+interface UtilsProps {
+  GraphLayout: {
+    allNodes: Node[];
+    layoutedNodes: Node[];
+    layoutedEdges: Edge[];
+    isLoading: boolean;
+    loadingMessage: string;
+    setLayoutedNodes: React.Dispatch<React.SetStateAction<Node[]>>;
+    setLayoutedEdges: React.Dispatch<React.SetStateAction<Edge[]>>;
+  };
+
+  GraphInteraction: {
+    activeTooltipEdgeId: string | null;
+    cardContentFlag: "nodeTooltip" | "pathfinding" | null;
+    nodeTooltipTitle: string | null;
+    nodeTooltipData: Array<{ targetLabel: string; weight: string | number }>;
+    pathStartNodeId: string | null;
+    pathEndNodeId: string | null;
+    foundPaths: Path[];
+    selectedPathNodes: Set<string>;
+    selectedPathEdges: Set<string>;
+    selectedPathIndex: number | null;
+    isPathfindingLoading: boolean;
+    isPathFinding: boolean;
+    handleEdgeSelect: (id: string) => void;
+    handleSelectPath: (path: Path, index: number) => void;
+    handleNodeClick: (_event: React.MouseEvent, node: Node) => void;
+    closeNodeTooltip: () => void;
+    setIsPathFinding: React.Dispatch<React.SetStateAction<boolean>>;
+    setCardContentFlag: React.Dispatch<
+      React.SetStateAction<"nodeTooltip" | "pathfinding" | null>
+    >;
+    resetPathfinding: () => void;
+    calculatePathDuration: (path: Path) => {
+      totalDuration: number;
+      averageDuration: number;
+    };
+    onPaneClick: () => void;
+  };
 }
 
-export default function Graph({ data, className }: GraphProps) {
-  const [showColorPaletteCard, setShowColorPaletteCard] =
-    useState<boolean>(false);
-  const [selectedColorPalette, setSelectedColorPalette] =
-    useState<string>("default");
+interface GraphProps {
+  className?: string;
+  utils: UtilsProps;
+}
+
+export default function Graph({ className, utils }: GraphProps) {
   const {
-    allNodes,
     layoutedNodes,
     layoutedEdges,
     isLoading,
     loadingMessage,
     setLayoutedNodes,
-    setLayoutedEdges,
-  } = useGraphLayout(data, selectedColorPalette);
+  } = utils.GraphLayout;
 
   const {
     activeTooltipEdgeId,
     cardContentFlag,
     nodeTooltipTitle,
     nodeTooltipData,
-    isPathFinding,
     pathStartNodeId,
     pathEndNodeId,
-    foundPaths,
     selectedPathNodes,
     selectedPathEdges,
-    selectedPathIndex,
-    isPathfindingLoading,
+    isPathFinding,
     handleEdgeSelect,
-    handleSelectPath,
     handleNodeClick,
     closeNodeTooltip,
-    setIsPathFinding,
-    setCardContentFlag,
-    resetPathfinding,
-    calculatePathDuration,
     onPaneClick,
-  } = useGraphInteraction(
-    allNodes,
-    layoutedEdges,
-    setLayoutedNodes,
-    setLayoutedEdges
-  );
+  } = utils.GraphInteraction;
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
@@ -206,63 +221,9 @@ export default function Graph({ data, className }: GraphProps) {
                 onClose={closeNodeTooltip}
               />
             )}
-            {cardContentFlag === "pathfinding" && (
-              <PathfindingCard
-                startNodeId={pathStartNodeId}
-                endNodeId={pathEndNodeId}
-                paths={foundPaths}
-                allNodes={allNodes}
-                onSelectPath={handleSelectPath}
-                selectedIndex={selectedPathIndex}
-                onClose={resetPathfinding}
-                calculatePathDuration={calculatePathDuration}
-                isLoading={isPathfindingLoading}
-              />
-            )}
           </Card>
         )}
 
-        <div className="absolute bottom-2 right-5 z-10 flex gap-x-2">
-          <Button
-            onPress={() => {
-              const nextIsPathFinding = !isPathFinding;
-              setIsPathFinding(nextIsPathFinding);
-              if (nextIsPathFinding) {
-                setCardContentFlag("pathfinding");
-              } else {
-                resetPathfinding();
-              }
-            }}
-            color={isPathFinding ? "danger" : "success"}
-          >
-            {isPathFinding ? "لغو انتخاب مسیر" : "یافتن مسیر بین دو نود"}
-          </Button>
-          <Button
-            isIconOnly
-            variant="flat"
-            color={showColorPaletteCard ? "danger" : "primary"}
-            onPress={() => {
-              setShowColorPaletteCard(!showColorPaletteCard);
-            }}
-          >
-            <img
-              src={showColorPaletteCard ? CloseIcon : ColorIcon}
-              alt=""
-              width={25}
-            />
-          </Button>
-        </div>
-        {showColorPaletteCard && (
-          <ColorPaletteCard
-            className="absolute bottom-2 left-15 z-10"
-            options={paletteOptions}
-            value={selectedColorPalette}
-            onChange={(value) => {
-              setSelectedColorPalette(value);
-            }}
-            label="انتخاب طیف رنگی یال ها"
-          />
-        )}
         <ReactFlow
           nodes={nodesForRender}
           edges={edgesForRender}

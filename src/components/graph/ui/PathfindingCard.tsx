@@ -1,11 +1,11 @@
 import { Edge, Node } from "@xyflow/react";
-import { CardHeader, CardBody } from "@heroui/card";
-import { Divider } from "@heroui/divider";
 import { Button } from "@heroui/button";
 import { Accordion, AccordionItem } from "@heroui/accordion";
 import { Tooltip } from "@heroui/tooltip";
-import closeIcon from "../../../assets/close-icon.svg";
+import { Input } from "@heroui/input";
+import { Search } from "lucide-react";
 import displayIcon from "../../../assets/display-icon.svg";
+import { Chip } from "@heroui/chip";
 import type { Path } from "src/types/types";
 import { useState, useEffect } from "react";
 interface PathfindingCardProps {
@@ -15,12 +15,12 @@ interface PathfindingCardProps {
   allNodes: Node[];
   isLoading: boolean;
   onSelectPath: (path: Path, index: number) => void;
-  onClose: () => void;
   selectedIndex: number | null;
   calculatePathDuration: (path: Path) => {
     totalDuration: number;
     averageDuration: number;
   };
+  handleNodeClick: (_event: React.MouseEvent, node: Node) => void;
 }
 
 export const PathfindingCard = ({
@@ -30,12 +30,13 @@ export const PathfindingCard = ({
   allNodes,
   isLoading,
   onSelectPath,
-  onClose,
   selectedIndex,
   calculatePathDuration,
+  handleNodeClick,
 }: PathfindingCardProps) => {
   const [sortedPaths, setSortedPaths] = useState<Path[]>([]);
   const [isSorting, setIsSorting] = useState(false);
+  const [searchedNodes, setSearchedNodes] = useState<Node[]>(allNodes);
   // مرتب کردن لیست
   useEffect(() => {
     // اگر مسیری وجود ندارد، همه‌چیز را ریست کن
@@ -99,6 +100,7 @@ export const PathfindingCard = ({
   }, [paths, calculatePathDuration]);
 
   const [currentPage, setCurrentPage] = useState(1);
+  const [activeTab, setActiveTab] = useState<"Nodes" | "Paths">("Paths");
   const itemsPerPage = 50;
   const totalPages = Math.ceil(sortedPaths.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -106,7 +108,7 @@ export const PathfindingCard = ({
   const currentPaths = sortedPaths.slice(startIndex, endIndex);
 
   const getNodeLabel = (id: string) =>
-    allNodes.find((n) => n.id === id)?.data?.label || id;
+    searchedNodes.find((n) => n.id === id)?.data?.label || id;
 
   const formatDuration = (seconds: number) => {
     if (seconds < 60) return `${seconds.toFixed(1)} ثانیه`;
@@ -114,23 +116,24 @@ export const PathfindingCard = ({
     return `${(seconds / 3600).toFixed(1)} ساعت`;
   };
 
+  const Tabs: {
+    name: "Nodes" | "Paths";
+    label: string;
+  }[] = [
+    {
+      name: "Nodes",
+      label: "راس ها",
+    },
+    {
+      name: "Paths",
+      label: "مسیر ها",
+    },
+  ];
+
   return (
-    <>
-      <CardHeader className="text-lg font-bold flex gap-x-2">
-        {/* ... (دکمه بستن و عنوان کارت بدون تغییر) ... */}
-        <Button
-          isIconOnly
-          color="danger"
-          size="sm"
-          variant="light"
-          onPress={onClose}
-        >
-          <img src={closeIcon} width={25} alt="Close" />
-        </Button>
-        <p>یافتن مسیر</p>
-      </CardHeader>
-      <CardBody className="text-right w-[500px]">
-        {/* ... (بخش‌های مربوط به انتخاب نود شروع و پایان بدون تغییر) ... */}
+    <div className="flex flex-col h-full">
+      {/* ... (بخش‌های مربوط به انتخاب نود شروع و پایان بدون تغییر) ... */}
+      <div className="w-full p-2 flex-shrink-0">
         {!startNodeId && <p>. لطفاً نود شروع را روی گراف انتخاب کنید...</p>}
         {startNodeId && !endNodeId && (
           <>
@@ -141,9 +144,44 @@ export const PathfindingCard = ({
           </>
         )}
 
-        {/* --- 5. مدیریت UI لودینگ‌ها --- */}
-        {/* (زمانی که نودها انتخاب شدند و لودینگ اصلی تمام شده) */}
-        {startNodeId && endNodeId && !isLoading && (
+        {!isLoading && startNodeId && endNodeId && (
+          <p>
+            <strong>{paths.length.toLocaleString()}</strong> مسیر از{" "}
+            <strong>{getNodeLabel(startNodeId)}</strong> به{" "}
+            <strong>{getNodeLabel(endNodeId)}</strong> یافت شد:
+          </p>
+        )}
+
+        {/* لودینگ اصلی (برای پیدا کردن مسیرها) */}
+        {isLoading && (
+          <div>
+            <p className="text-xl font-bold mb-2 ">
+              پیدا کردن مسیر ها از {getNodeLabel(startNodeId)} به{" "}
+              {getNodeLabel(endNodeId)}
+            </p>
+            <p>در حال یافتن مسیرها، لطفاً صبر کنید...</p>
+          </div>
+        )}
+      </div>
+
+      {/* تب ها */}
+      <div className="w-full flex gap-x-2 mt-3 flex-shrink-0">
+        {Tabs.map((tab) => {
+          const isActive = activeTab === tab.name;
+          return (
+            <div
+              key={tab.name}
+              onClick={() => setActiveTab(tab.name)}
+              className={`w-full text-center py-1 border-1 rounded-lg shadow-lg text-sm cursor-pointer transition-all ${isActive ? "bg-primary/70 text-white shadow-xl" : "hover:bg-primary/30"}`}
+            >
+              {tab.label}
+            </div>
+          );
+        })}
+      </div>
+      <div className=" flex-1 overflow-y-auto min-h-0 px-2 mt-4">
+        {/* تب مسیر ها: */}
+        {activeTab === "Paths" && startNodeId && endNodeId && !isLoading && (
           <div>
             {/* --- 5a. نمایش لودر مرتب‌سازی --- */}
             {isSorting && (
@@ -160,16 +198,9 @@ export const PathfindingCard = ({
             )}
 
             {/* --- 5b. نمایش لیست (فقط زمانی که مرتب‌سازی تمام شده) --- */}
-            {!isSorting && (
+            {!isSorting && !isLoading && (
               <div>
-                <p>
-                  {/* از sortedPaths.length استفاده می‌کنیم */}
-                  <strong>{sortedPaths.length.toLocaleString()}</strong> مسیر از{" "}
-                  <strong>{getNodeLabel(startNodeId)}</strong> به{" "}
-                  <strong>{getNodeLabel(endNodeId)}</strong> یافت شد:
-                </p>
-                <Divider className="my-2" />
-                {sortedPaths.length === 0 ? (
+                {paths.length === 0 ? (
                   <p>هیچ مسیر مستقیمی یافت نشد.</p>
                 ) : (
                   <div>
@@ -280,18 +311,88 @@ export const PathfindingCard = ({
             )}
           </div>
         )}
-
-        {/* لودینگ اصلی (برای پیدا کردن مسیرها) */}
-        {isLoading && (
-          <div>
-            <p className="text-xl font-bold mb-2 ">
-              پیدا کردن مسیر ها از {getNodeLabel(startNodeId)} به{" "}
-              {getNodeLabel(endNodeId)}
-            </p>
-            <p>در حال یافتن مسیرها، لطفاً صبر کنید...</p>
+        {activeTab === "Paths" && (!startNodeId || !endNodeId) && (
+          <div className="flex justify-center items-center h-full">
+            لطفا راس ها را انتخاب کنید.
           </div>
         )}
-      </CardBody>
-    </>
+
+        {activeTab === "Nodes" &&
+          (() => {
+            return (
+              <div className="flex flex-col gap-y-2">
+                <Input
+                  type="text"
+                  variant="faded"
+                  placeholder="جستجو بین راس ها"
+                  startContent={<Search size={24} />}
+                  onChange={(e) => {
+                    const value = e.target.value.toLowerCase();
+
+                    if (!value.trim()) {
+                      setSearchedNodes(allNodes);
+                      return;
+                    }
+                    setSearchedNodes(
+                      allNodes.filter((node) =>
+                        node.data.label.toLowerCase().includes(value)
+                      )
+                    );
+                  }}
+                />
+                {searchedNodes.map((node, index) => {
+                  const isSelected =
+                    startNodeId === node.id || endNodeId === node.id;
+
+                  return (
+                    <Tooltip
+                      showArrow
+                      placement="left"
+                      content={
+                        startNodeId === node.id
+                          ? "انتخاب شده به عنوان راس شروع"
+                          : endNodeId === node.id
+                            ? "انتخاب شده به عنوان راس پایان"
+                            : !startNodeId
+                              ? "انتخاب کردن به عنوان راس شروع"
+                              : !endNodeId
+                                ? "انتخاب کردن به عنوان راس پایان"
+                                : "انتخاب دوباره راس شروع"
+                      }
+                    >
+                      <Button
+                        variant={isSelected ? "solid" : "flat"}
+                        color="primary"
+                        fullWidth
+                        onPress={(event) => {
+                          handleNodeClick(event, node);
+                        }}
+                        className={`${isSelected ? "scale-95" : ""} transition-all`}
+                      >
+                        {node.data.label}
+                        {isSelected && (
+                          <Chip
+                            variant="solid"
+                            size="sm"
+                            color={
+                              startNodeId === node.id
+                                ? "success"
+                                : endNodeId === node.id && "danger"
+                            }
+                          >
+                            {startNodeId === node.id
+                              ? "راس شروع"
+                              : endNodeId === node.id && "راس پایان"}
+                          </Chip>
+                        )}
+                      </Button>
+                    </Tooltip>
+                  );
+                })}
+              </div>
+            );
+          })()}
+      </div>
+    </div>
   );
 };
