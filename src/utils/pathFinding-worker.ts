@@ -30,7 +30,7 @@ self.onmessage = async (event: MessageEvent) => {
       console.log("Pathfinding Worker: Received job.");
       const { allEdges, startNodeId, endNodeId } = payload;
 
-      const MAX_PATHS_TO_FIND = 500000;
+      const MAX_PATHS_TO_FIND = 100000;
       const MAX_PATH_LENGTH = 30; // حداکثر عمق جستجو
 
       // +++++ گام ۱ تا ۵: Pruning (هرس کردن) (بدون تغییر) +++++

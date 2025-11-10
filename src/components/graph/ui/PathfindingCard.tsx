@@ -8,6 +8,7 @@ import displayIcon from "../../../assets/display-icon.svg";
 import { Chip } from "@heroui/chip";
 import type { Path } from "src/types/types";
 import { useState, useEffect } from "react";
+
 interface PathfindingCardProps {
   startNodeId: string | null;
   endNodeId: string | null;
@@ -34,27 +35,29 @@ export const PathfindingCard = ({
   calculatePathDuration,
   handleNodeClick,
 }: PathfindingCardProps) => {
+  const [processedPaths, setProcessedPaths] = useState<Path[]>([]);
   const [sortedPaths, setSortedPaths] = useState<Path[]>([]);
+  const [isSorted, setIsSorted] = useState(false);
   const [isSorting, setIsSorting] = useState(false);
   const [searchedNodes, setSearchedNodes] = useState<Node[]>(allNodes);
-  // مرتب کردن لیست
+
+  // پردازش مسیرها بدون مرتب‌سازی خودکار
   useEffect(() => {
     // اگر مسیری وجود ندارد، همه‌چیز را ریست کن
     if (paths.length === 0) {
+      setProcessedPaths([]);
       setSortedPaths([]);
+      setIsSorted(false);
       setIsSorting(false);
       return;
     }
 
-    // لودر مرتب‌سازی را نشان بده
+    // لودر پردازش را نشان بده
     setIsSorting(true);
-    // با دریافت مسیرهای جدید، به صفحه اول برو
-    setCurrentPage(1);
 
-    const processedPaths: Path[] = [];
+    const processed: Path[] = [];
     let index = 0;
     // اندازه هر "تکه" برای پردازش
-    // این عدد را می‌توانید بر اساس تست پرفورمنس تنظیم کنید
     const CHUNK_SIZE = 5000;
 
     function processChunk() {
@@ -67,37 +70,43 @@ export const PathfindingCard = ({
           const { totalDuration, averageDuration } =
             calculatePathDuration(path);
           // ذخیره مقادیر محاسبه‌شده در خود آبجکت مسیر
-          processedPaths.push({ ...path, totalDuration, averageDuration });
+          processed.push({ ...path, totalDuration, averageDuration });
         }
 
         index += CHUNK_SIZE;
 
         if (index < paths.length) {
           // اگر هنوز مسیری باقی مانده، به UI اجازه نفس کشیدن بده
-          // و پردازش تکه بعدی را به تعویق بینداز
           setTimeout(processChunk, 0);
         } else {
-          // --- تمام مسیرها پردازش شدند، حالا مرتب‌سازی ---
-          // مرتب‌سازی بر اساس میانگین زمان (از کم به زیاد)
-          // از 0 (?? 0) برای مقادیر احتمالی undefined استفاده می‌کنیم
-          processedPaths.sort(
-            (a, b) => (a.averageDuration ?? 0) - (b.averageDuration ?? 0)
-          );
-
-          // ذخیره لیست نهایی و مرتب‌شده در state
-          setSortedPaths(processedPaths);
-          // پایان لودینگ مرتب‌سازی
+          // تمام مسیرها پردازش شدند، لیست بدون مرتب‌سازی را ذخیره کن
+          setProcessedPaths(processed);
+          setSortedPaths(processed);
           setIsSorting(false);
         }
       } catch (error) {
-        console.error("خطا در پردازش و مرتب‌سازی مسیرها:", error);
-        setIsSorting(false); // در صورت بروز خطا، لودینگ متوقف شود
+        console.error("خطا در پردازش مسیرها:", error);
+        setIsSorting(false);
       }
     }
 
     // شروع پردازش اولین تکه
     processChunk();
   }, [paths, calculatePathDuration]);
+
+  // تابع مرتب‌سازی
+  const handleSortPaths = () => {
+    if (isSorted) return; // اگر قبلاً مرتب شده، کاری نکن
+
+    setIsSorting(true);
+    // مرتب‌سازی بر اساس میانگین زمان (از کم به زیاد)
+    const sorted = [...processedPaths].sort(
+      (a, b) => (a.averageDuration ?? 0) - (b.averageDuration ?? 0)
+    );
+    setSortedPaths(sorted);
+    setIsSorted(true);
+    setIsSorting(false);
+  };
 
   const [currentPage, setCurrentPage] = useState(1);
   const [activeTab, setActiveTab] = useState<"Nodes" | "Paths">("Paths");
@@ -132,15 +141,15 @@ export const PathfindingCard = ({
 
   return (
     <div className="flex flex-col h-full">
-      {/* ... (بخش‌های مربوط به انتخاب نود شروع و پایان بدون تغییر) ... */}
+      {/* بخش‌های مربوط به انتخاب نود شروع و پایان بدون تغییر */}
       <div className="w-full p-2 flex-shrink-0">
-        {!startNodeId && <p>. لطفاً نود شروع را روی گراف انتخاب کنید...</p>}
+        {!startNodeId && <p>لطفاً نود شروع را روی گراف انتخاب کنید...</p>}
         {startNodeId && !endNodeId && (
           <>
             <p>
               نود شروع: <strong>{getNodeLabel(startNodeId)}</strong>
             </p>
-            <p> لطفاً نود پایان را روی گراف انتخاب کنید...</p>
+            <p>لطفاً نود پایان را روی گراف انتخاب کنید...</p>
           </>
         )}
 
@@ -183,34 +192,39 @@ export const PathfindingCard = ({
         {/* تب مسیر ها: */}
         {activeTab === "Paths" && startNodeId && endNodeId && !isLoading && (
           <div>
-            {/* --- 5a. نمایش لودر مرتب‌سازی --- */}
+            {/* نمایش لودر پردازش */}
             {isSorting && (
               <div className="text-center p-4">
                 <p className="font-bold">
-                  در حال آماده‌سازی و مرتب‌سازی {paths.length.toLocaleString()}{" "}
-                  مسیر...
+                  {isSorted ? "در حال مرتب‌سازی" : "در حال آماده‌سازی"}{" "}
+                  {paths.length.toLocaleString()} مسیر...
                 </p>
                 <p className="text-sm text-gray-500">
                   لطفا کمی صبر کنید. این عملیات ممکن است چند لحظه طول بکشد.
                 </p>
-                {/* می‌توانید یک کامپوننت Spinner هم اینجا اضافه کنید */}
               </div>
             )}
 
-            {/* --- 5b. نمایش لیست (فقط زمانی که مرتب‌سازی تمام شده) --- */}
+            {/* نمایش لیست (فقط زمانی که پردازش تمام شده) */}
             {!isSorting && !isLoading && (
               <div>
                 {paths.length === 0 ? (
                   <p>هیچ مسیر مستقیمی یافت نشد.</p>
                 ) : (
                   <div>
-                    <div className="flex justify-between items-center mb-4">
-                      <span className="text-sm text-gray-500">
-                        صفحه {currentPage} از {totalPages} (
-                        {sortedPaths.length.toLocaleString()} مسیر)
-                      </span>
+                    <div className="flex flex-col justify-between items-center mb-4">
                       <div className="flex gap-2">
-                        {/* ... (دکمه‌های صفحه‌بندی بدون تغییر) ... */}
+                        {/* دکمه مرتب‌سازی */}
+                        <Button
+                          size="sm"
+                          variant="flat"
+                          color={isSorted ? "success" : "primary"}
+                          isDisabled={isSorted}
+                          onPress={handleSortPaths}
+                        >
+                          {isSorted ? "مرتب‌شده" : "مرتب‌سازی"}
+                        </Button>
+                        {/* دکمه‌های صفحه‌بندی */}
                         <Button
                           size="sm"
                           variant="flat"
@@ -228,20 +242,26 @@ export const PathfindingCard = ({
                           بعدی
                         </Button>
                       </div>
+                      <span className="text-sm text-gray-500 mt-2">
+                        {isSorted && " (مرتب‌شده بر اساس میانگین زمان)"}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center mb-2 text-sm text-gray-500">
+                      <span>
+                        صفحه {currentPage} از {totalPages} (
+                        {sortedPaths.length.toLocaleString()} مسیر)
+                      </span>
                     </div>
 
                     <Accordion className="p-0" variant="splitted" isCompact>
-                      {/* از currentPaths (که از sortedPaths آمده) استفاده می‌کنیم */}
                       {currentPaths.map((path, index) => {
                         const actualIndex = startIndex + index;
 
-                        // --- 6. استفاده از مقادیر محاسبه‌شده ---
-                        // دیگر نیازی به فراخوانی calculatePathDuration در هر رندر نیست
                         const duration = {
                           totalDuration: path.totalDuration ?? 0,
                           averageDuration: path.averageDuration ?? 0,
                         };
-                        // ---
 
                         return (
                           <AccordionItem
@@ -283,11 +303,10 @@ export const PathfindingCard = ({
                             classNames={{ indicator: "cursor-pointer" }}
                           >
                             <div className="text-sm text-gray-500">
-                              میانگین زمان: {/* استفاده از متغیر duration */}
+                              میانگین زمان:{" "}
                               {formatDuration(duration.averageDuration)} | کل
                               زمان: {formatDuration(duration.totalDuration)}
                             </div>
-                            {/* ... (بقیه رندر آیتم بدون تغییر) ... */}
                             {path.nodes.slice(0, 10).map((id, i) => (
                               <p
                                 key={i}

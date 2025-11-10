@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { Node, Edge } from "@xyflow/react";
 import type { Path } from "src/types/types";
 import PathFindingWorker from "../../../utils/pathFinding-worker?worker";
@@ -36,23 +36,41 @@ export const useGraphInteraction = (
   );
   const [isPathfindingLoading, setIsPathfindingLoading] = useState(false);
 
-  const calculatePathDuration = (path: Path) => {
-    let totalDuration = 0;
-    let edgeCount = 0;
-
-    path.edges.forEach((edgeId) => {
-      const edge = allEdges.find((e) => e.id === edgeId);
-      if (edge && edge.data?.Mean_Duration_Seconds) {
-        totalDuration += edge.data.Mean_Duration_Seconds;
-        edgeCount++;
+  const outgoingEdgesMap = useMemo(() => {
+    const map = new Map<string, Edge[]>();
+    allEdges.forEach((edge) => {
+      if (!map.has(edge.source)) {
+        map.set(edge.source, []);
       }
+      map.get(edge.source)!.push(edge);
     });
+    return map;
+  }, [allEdges]);
 
-    return {
-      totalDuration,
-      averageDuration: edgeCount > 0 ? totalDuration / edgeCount : 0,
-    };
-  };
+  const edgesMap = useMemo(() => {
+    return new Map(allEdges.map((edge) => [edge.id, edge]));
+  }, [allEdges]);
+
+  const calculatePathDuration = useCallback(
+    (path: Path) => {
+      let totalDuration = 0;
+      let edgeCount = 0;
+
+      path.edges.forEach((edgeId) => {
+        const edge = edgesMap.get(edgeId);
+        if (edge && edge.data?.Mean_Duration_Seconds) {
+          totalDuration += edge.data.Mean_Duration_Seconds;
+          edgeCount++;
+        }
+      });
+
+      return {
+        totalDuration,
+        averageDuration: edgeCount > 0 ? totalDuration / edgeCount : 0,
+      };
+    },
+    [edgesMap]
+  );
 
   const handleEdgeSelect = useCallback(
     (edgeId: string) => {
@@ -147,9 +165,7 @@ export const useGraphInteraction = (
       if (!isPathFinding) {
         const nodeLabel = (node.data?.label as string) || (node.id as string);
         setNodeTooltipData([]);
-        const outgoingEdges = allEdges.filter(
-          (edge) => edge.source === node.id
-        );
+        const outgoingEdges = outgoingEdgesMap.get(node.id) || [];
         const outgoingEdgeIds = new Set(outgoingEdges.map((e) => e.id));
         const tooltipData = outgoingEdges.map((edge) => {
           const targetNode = allNodes.find((n) => n.id === edge.target);
@@ -235,6 +251,7 @@ export const useGraphInteraction = (
     [
       isPathFinding,
       pathStartNodeId,
+      outgoingEdgesMap,
       pathEndNodeId,
       allEdges,
       allNodes,
