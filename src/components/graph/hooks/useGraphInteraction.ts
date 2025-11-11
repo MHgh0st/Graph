@@ -100,6 +100,7 @@ export const useGraphInteraction = (
               ...(edge.style || {}),
               strokeWidth: isSelected ? 4 : originalStrokeWidth,
               stroke: isSelected ? "#ef4444" : originalStroke,
+              zIndex: isSelected && 500,
               strokeOpacity: isSelected
                 ? 1
                 : originalStroke.includes("rgba")
@@ -115,14 +116,20 @@ export const useGraphInteraction = (
         const dataToShow = [];
         if (selectedEdge.label) {
           dataToShow.push({
-            label: "فراوانی (Frequency)",
+            label: "تعداد",
             value: selectedEdge.label,
           });
         }
-        if (selectedEdge.data?.Mean_Duration_Seconds) {
+        if (selectedEdge.data?.Tooltip_Mean_Time) {
           dataToShow.push({
-            label: "میانگین زمان (ثانیه)",
-            value: selectedEdge.data.Mean_Duration_Seconds.toFixed(2),
+            label: "میانگین زمان",
+            value: selectedEdge.data.Tooltip_Mean_Time,
+          });
+        }
+        if (selectedEdge.data?.Tooltip_Total_Time) {
+          dataToShow.push({
+            label: "زمان کل",
+            value: selectedEdge.data.Tooltip_Total_Time,
           });
         }
         setEdgeTooltipData(dataToShow);

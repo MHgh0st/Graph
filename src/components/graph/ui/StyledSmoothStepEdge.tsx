@@ -187,14 +187,6 @@ export const StyledSmoothStepEdge = (props: EdgeProps) => {
             }}
             className="nodrag nopan"
           />
-          {isTooltipVisible && data && (
-            <EdgeTooltip
-              data={data as unknown as TooltipData}
-              style={{
-                transform: `translate(-50%, -120%) translate(${labelX}px, ${labelY}px)`,
-              }}
-            />
-          )}
         </EdgeLabelRenderer>
       )}
     </>

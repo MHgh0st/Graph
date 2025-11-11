@@ -28,7 +28,14 @@ export default function EdgeTooltip({
         </Button>
         {edgeTooltipTitle || "جزئیات یال"}
       </CardHeader>
-      <CardBody></CardBody>
+      <CardBody>
+        {edgeTooltipData.map((item, index) => (
+          <li key={index} className="flex justify-between text-xs">
+            <span className="text-gray-600">{item.label}:</span>
+            <span className="font-medium">{item.value}</span>
+          </li>
+        ))}
+      </CardBody>
     </>
     // <div className="flex flex-col gap-y-2 w-[250px]">
     //   <div className="flex justify-between items-center">
