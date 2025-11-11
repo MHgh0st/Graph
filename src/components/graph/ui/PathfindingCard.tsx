@@ -109,7 +109,7 @@ export const PathfindingCard = ({
   };
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [activeTab, setActiveTab] = useState<"Nodes" | "Paths">("Paths");
+  const [activeTab, setActiveTab] = useState<"Nodes" | "Paths">("Nodes");
   const itemsPerPage = 50;
   const totalPages = Math.ceil(sortedPaths.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -281,7 +281,7 @@ export const PathfindingCard = ({
                                     isIconOnly
                                     color={
                                       selectedIndex === actualIndex
-                                        ? "success"
+                                        ? "warning"
                                         : "default"
                                     }
                                     variant="flat"
@@ -299,7 +299,7 @@ export const PathfindingCard = ({
                                 "flex flex-row-reverse items-center justify-between gap-2",
                               titleWrapper: "text-right",
                             }}
-                            className={`shadow-none ${selectedIndex === actualIndex ? "bg-success/20" : "bg-default/40"}`}
+                            className={`shadow-none ${selectedIndex === actualIndex ? "bg-warning/20" : "bg-default/40"}`}
                             classNames={{ indicator: "cursor-pointer" }}
                           >
                             <div className="text-sm text-gray-500">

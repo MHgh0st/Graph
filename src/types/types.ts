@@ -19,3 +19,5 @@ export interface PaletteOption {
   label: string;
   gradient: string;
 }
+
+export type SidebarTab = "Filter" | "Routing" | "Settings" | "Nodes";

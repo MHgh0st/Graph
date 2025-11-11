@@ -5,25 +5,26 @@ import { Card, CardHeader, CardBody } from "@heroui/card";
 import { Button } from "@heroui/button";
 import { X } from "lucide-react";
 import { HeroUIProvider } from "@heroui/system";
+import { ReactFlowProvider } from "@xyflow/react";
 import ProcessData from "./utils/ProcessData";
 import FileUploader from "./components/FileUploader";
 import Graph from "./components/Graph";
 import Filters from "./components/Filters";
-import { FilterTypes } from "./types/types";
+import { FilterTypes, SidebarTab } from "./types/types";
 import SideBar from "./components/SideBar";
 import { useGraphLayout } from "./components/graph/hooks/useGraphLayout";
 import { useGraphInteraction } from "./components/graph/hooks/useGraphInteraction";
 import { PathfindingCard } from "./components/graph/ui/PathfindingCard";
-import ColorPaletteCard from "./components/graph/ui/ColorPaletteCard";
+import SettingsCard from "./components/SettingsCard";
+import NodesFilterCard from "./components/NodesFilterCard";
 import { paletteOptions } from "./constants/colorPalettes";
 function App() {
   const [dataFilePath, setDataFilePath] = useState<string | null>(null);
   const [isLoadingRenderer, setIsLoadingRenderer] = useState<boolean>(false);
   const [step, setStep] = useState<number>(1);
   const [graphData, setGraphData] = useState<any[] | null>(null);
-  const [sideBarActiveTab, setSideBarActiveTab] = useState<
-    "Filter" | "Routing" | "ColorPalette"
-  >("Filter");
+  const [sideBarActiveTab, setSideBarActiveTab] =
+    useState<SidebarTab>("Filter");
   const [isSideCardShow, setIsSideCardShow] = useState<boolean>(true);
   const [selectedColorPalette, setSelectedColorPalette] =
     useState<string>("default");
@@ -42,6 +43,8 @@ function App() {
     cardContentFlag,
     nodeTooltipTitle,
     nodeTooltipData,
+    edgeTooltipTitle,
+    edgeTooltipData,
     pathStartNodeId,
     pathEndNodeId,
     foundPaths,
@@ -93,139 +96,153 @@ function App() {
 
   return (
     <>
-      <HeroUIProvider locale="fa-IR">
-        {step === 1 && (
-          <FileUploader setPythonPath={setDataFilePath} submit={submit} />
-        )}
-        {step === 2 && dataFilePath && (
-          <div
-            className="grid grid-cols-24 w-screen h-screen p-2 overflow-hidden"
-            dir="rtl"
-          >
-            <SideBar
-              className="col-span-2"
-              activeTab={sideBarActiveTab}
-              onClickTab={(name) => {
-                setSideBarActiveTab(name);
-                setIsSideCardShow(true);
-              }}
-            />
+      <ReactFlowProvider>
+        <HeroUIProvider locale="fa-IR">
+          {step === 1 && (
+            <FileUploader setPythonPath={setDataFilePath} submit={submit} />
+          )}
+          {step === 2 && dataFilePath && (
+            <div
+              className="grid grid-cols-24 w-screen h-screen p-2 overflow-hidden"
+              dir="rtl"
+            >
+              <SideBar
+                className="col-span-2"
+                activeTab={sideBarActiveTab}
+                onClickTab={(name) => {
+                  setSideBarActiveTab(name);
+                  setIsSideCardShow(true);
+                }}
+              />
 
-            {isSideCardShow && (
-              <Card className="col-span-6">
-                <CardHeader className="flex gap-x-3">
-                  <Button
-                    isIconOnly
-                    size="sm"
-                    color="danger"
-                    variant="flat"
-                    onPress={() => {
-                      setIsSideCardShow(false);
-                      setSideBarActiveTab(null);
-                      setIsPathFinding(false);
-                      resetPathfinding();
-                    }}
-                  >
-                    <X size={20} />
-                  </Button>
-                  <p className="text-2xl font-bold">
-                    {sideBarActiveTab === "Filter" && "فیلتر ها"}
-                    {sideBarActiveTab === "Routing" && "مسیر یابی بین دو یال"}
-                    {sideBarActiveTab === "ColorPalette" && "انتخاب ظیف رنگی"}
-                  </p>
-                </CardHeader>
-                <CardBody className="text-right">
-                  {sideBarActiveTab === "Filter" ? (
-                    <Filters submit={submit} isLoading={isLoadingRenderer} />
-                  ) : sideBarActiveTab === "Routing" ? (
-                    graphData ? (
-                      <PathfindingCard
-                        startNodeId={pathStartNodeId}
-                        endNodeId={pathEndNodeId}
-                        paths={foundPaths}
-                        allNodes={allNodes}
-                        onSelectPath={handleSelectPath}
-                        selectedIndex={selectedPathIndex}
-                        calculatePathDuration={calculatePathDuration}
-                        isLoading={isPathfindingLoading}
-                        handleNodeClick={handleNodeClick}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex justify-center items-center text-center text-3xl font-bold leading-15">
-                        لطفا ابتدا داده ی گراف را از تب فیلتر ها انتخاب کنید.
-                      </div>
-                    )
-                  ) : (
-                    sideBarActiveTab === "ColorPalette" && (
-                      <ColorPaletteCard
-                        options={paletteOptions}
-                        value={selectedColorPalette}
-                        onChange={(value) => {
-                          setSelectedColorPalette(value);
+              {isSideCardShow && (
+                <Card className="col-span-6">
+                  <CardHeader className="flex gap-x-3">
+                    <Button
+                      isIconOnly
+                      size="sm"
+                      color="danger"
+                      variant="flat"
+                      onPress={() => {
+                        setIsSideCardShow(false);
+                        // setSideBarActiveTab(null);
+                        // setIsPathFinding(false);
+                        // resetPathfinding();
+                      }}
+                    >
+                      <X size={20} />
+                    </Button>
+                    <p className="text-2xl font-bold">
+                      {sideBarActiveTab === "Filter" && "فیلتر ها"}
+                      {sideBarActiveTab === "Routing" && "مسیر یابی بین دو یال"}
+                      {sideBarActiveTab === "Settings" && "تنظیمات"}
+                      {sideBarActiveTab === "Nodes" && "جستجو بین گره ها"}
+                    </p>
+                  </CardHeader>
+                  <CardBody className="text-right">
+                    {sideBarActiveTab === "Filter" ? (
+                      <Filters submit={submit} isLoading={isLoadingRenderer} />
+                    ) : sideBarActiveTab === "Routing" ? (
+                      graphData ? (
+                        <PathfindingCard
+                          startNodeId={pathStartNodeId}
+                          endNodeId={pathEndNodeId}
+                          paths={foundPaths}
+                          allNodes={allNodes}
+                          onSelectPath={handleSelectPath}
+                          selectedIndex={selectedPathIndex}
+                          calculatePathDuration={calculatePathDuration}
+                          isLoading={isPathfindingLoading}
+                          handleNodeClick={handleNodeClick}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex justify-center items-center text-center text-3xl font-bold leading-15">
+                          لطفا ابتدا داده ی گراف را از تب فیلتر ها انتخاب کنید.
+                        </div>
+                      )
+                    ) : sideBarActiveTab === "Settings" ? (
+                      // <ColorPaletteCard
+                      //   options={paletteOptions}
+                      //   value={selectedColorPalette}
+                      //   onChange={(value) => {
+                      //     setSelectedColorPalette(value);
+                      //   }}
+                      // />
+                      <SettingsCard
+                        ColorPaletteProps={{
+                          options: paletteOptions,
+                          value: selectedColorPalette,
+                          onChange: (value) => {
+                            setSelectedColorPalette(value);
+                          },
                         }}
                       />
-                    )
-                  )}
-                </CardBody>
-              </Card>
-            )}
-            <main
-              className={`${isSideCardShow ? "col-span-16" : "col-span-22"} flex items-center justify-center`}
-            >
-              {isLoadingRenderer && (
-                <p>در حال پردازش داده‌ها، لطفاً منتظر بمانید...</p>
+                    ) : (
+                      <NodesFilterCard Nodes={allNodes} />
+                    )}
+                  </CardBody>
+                </Card>
               )}
+              <main
+                className={`${isSideCardShow ? "col-span-16" : "col-span-22"} flex items-center justify-center`}
+              >
+                {isLoadingRenderer && (
+                  <p>در حال پردازش داده‌ها، لطفاً منتظر بمانید...</p>
+                )}
 
-              {!isLoadingRenderer && graphData && (
-                <Graph
-                  className="w-full h-full"
-                  utils={{
-                    GraphLayout: {
-                      allNodes,
-                      layoutedNodes,
-                      layoutedEdges,
-                      isLoading,
-                      loadingMessage,
-                      setLayoutedNodes,
-                      setLayoutedEdges,
-                    },
-                    GraphInteraction: {
-                      activeTooltipEdgeId,
-                      cardContentFlag,
-                      nodeTooltipTitle,
-                      nodeTooltipData,
-                      pathStartNodeId,
-                      pathEndNodeId,
-                      foundPaths,
-                      selectedPathNodes,
-                      selectedPathEdges,
-                      selectedPathIndex,
-                      isPathfindingLoading,
-                      isPathFinding,
-                      handleEdgeSelect,
-                      handleSelectPath,
-                      handleNodeClick,
-                      closeNodeTooltip,
-                      setIsPathFinding,
-                      setCardContentFlag,
-                      resetPathfinding,
-                      calculatePathDuration,
-                      onPaneClick,
-                    },
-                  }}
-                />
-              )}
+                {!isLoadingRenderer && graphData && (
+                  <Graph
+                    className="w-full h-full"
+                    utils={{
+                      GraphLayout: {
+                        allNodes,
+                        layoutedNodes,
+                        layoutedEdges,
+                        isLoading,
+                        loadingMessage,
+                        setLayoutedNodes,
+                        setLayoutedEdges,
+                      },
+                      GraphInteraction: {
+                        activeTooltipEdgeId,
+                        cardContentFlag,
+                        nodeTooltipTitle,
+                        nodeTooltipData,
+                        edgeTooltipTitle,
+                        edgeTooltipData,
+                        pathStartNodeId,
+                        pathEndNodeId,
+                        foundPaths,
+                        selectedPathNodes,
+                        selectedPathEdges,
+                        selectedPathIndex,
+                        isPathfindingLoading,
+                        isPathFinding,
+                        handleEdgeSelect,
+                        handleSelectPath,
+                        handleNodeClick,
+                        closeNodeTooltip,
+                        setIsPathFinding,
+                        setCardContentFlag,
+                        resetPathfinding,
+                        calculatePathDuration,
+                        onPaneClick,
+                      },
+                    }}
+                  />
+                )}
 
-              {!isLoadingRenderer && !graphData && (
-                <p>
-                  برای مشاهده‌ی گراف، فیلترها را تنظیم کرده و دکمه "پردازش" را
-                  بزنید.
-                </p>
-              )}
-            </main>
-          </div>
-        )}
-      </HeroUIProvider>
+                {!isLoadingRenderer && !graphData && (
+                  <p>
+                    برای مشاهده‌ی گراف، فیلترها را تنظیم کرده و دکمه "پردازش" را
+                    بزنید.
+                  </p>
+                )}
+              </main>
+            </div>
+          )}
+        </HeroUIProvider>
+      </ReactFlowProvider>
     </>
   );
 }

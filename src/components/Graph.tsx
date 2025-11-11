@@ -14,6 +14,7 @@ import { Card } from "@heroui/card";
 
 import { StyledSmoothStepEdge } from "./graph/ui/StyledSmoothStepEdge";
 import { NodeTooltip } from "./graph/ui/NodeTooltip";
+import EdgeTooltip from "./graph/ui/EdgeTooltip";
 import type { Path } from "src/types/types";
 
 interface UtilsProps {
@@ -29,9 +30,11 @@ interface UtilsProps {
 
   GraphInteraction: {
     activeTooltipEdgeId: string | null;
-    cardContentFlag: "nodeTooltip" | "pathfinding" | null;
+    cardContentFlag: "nodeTooltip" | "edgeTooltip" | null;
     nodeTooltipTitle: string | null;
     nodeTooltipData: Array<{ targetLabel: string; weight: string | number }>;
+    edgeTooltipTitle: string | null;
+    edgeTooltipData: Array<{ label: string; value: string | number }>;
     pathStartNodeId: string | null;
     pathEndNodeId: string | null;
     foundPaths: Path[];
@@ -46,7 +49,7 @@ interface UtilsProps {
     closeNodeTooltip: () => void;
     setIsPathFinding: React.Dispatch<React.SetStateAction<boolean>>;
     setCardContentFlag: React.Dispatch<
-      React.SetStateAction<"nodeTooltip" | "pathfinding" | null>
+      React.SetStateAction<"nodeTooltip" | "edgeTooltip" | null>
     >;
     resetPathfinding: () => void;
     calculatePathDuration: (path: Path) => {
@@ -76,6 +79,8 @@ export default function Graph({ className, utils }: GraphProps) {
     cardContentFlag,
     nodeTooltipTitle,
     nodeTooltipData,
+    edgeTooltipTitle,
+    edgeTooltipData,
     pathStartNodeId,
     pathEndNodeId,
     selectedPathNodes,
@@ -138,8 +143,9 @@ export default function Graph({ className, utils }: GraphProps) {
     const isHighlighting = selectedPathNodes.size > 0;
     return layoutedNodes.map((node) => {
       const isHighlighted = selectedPathNodes.has(node.id);
-      const isStartOrEnd =
-        node.id === pathStartNodeId || node.id === pathEndNodeId;
+
+      const isStart = node.id === pathStartNodeId;
+      const isEnd = node.id === pathEndNodeId;
       return {
         ...node,
         data: {
@@ -149,7 +155,11 @@ export default function Graph({ className, utils }: GraphProps) {
         style: {
           ...getNodeStyle(node),
           opacity: isHighlighting && !isHighlighted ? 0.2 : 1,
-          boxShadow: isStartOrEnd ? "0 0 10px 3px #ef4444" : "none",
+          boxShadow: isStart
+            ? "0 0 15px 3px #10b981"
+            : isEnd
+              ? "0 0 15px 3px #ef4444"
+              : "",
           transition: "all 0.3s ease",
         },
         label: node.data?.label || node.id,
@@ -178,7 +188,7 @@ export default function Graph({ className, utils }: GraphProps) {
         onClick: () => handleEdgeSelect(edge.id),
         style: {
           ...(edge.style || {}),
-          stroke: isHighlighted ? "#10b981" : edge.style?.stroke,
+          stroke: isHighlighted ? "#FFC107" : edge.style?.stroke,
           strokeWidth: isHighlighted ? 3 : edge.style?.strokeWidth,
           opacity: isPathFinding && !isHighlighted ? 0.2 : opacity,
           transition: "all 0.3s ease",
@@ -218,6 +228,13 @@ export default function Graph({ className, utils }: GraphProps) {
               <NodeTooltip
                 nodeTooltipTitle={nodeTooltipTitle}
                 nodeTooltipData={nodeTooltipData}
+                onClose={closeNodeTooltip}
+              />
+            )}
+            {cardContentFlag === "edgeTooltip" && (
+              <EdgeTooltip
+                edgeTooltipData={edgeTooltipData}
+                edgeTooltipTitle={edgeTooltipTitle}
                 onClose={closeNodeTooltip}
               />
             )}

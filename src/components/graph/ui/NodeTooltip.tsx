@@ -1,7 +1,7 @@
 import { CardHeader, CardBody } from "@heroui/card";
 import { Divider } from "@heroui/divider";
 import { Button } from "@heroui/button";
-import closeIcon from "../../../assets/close-icon.svg";
+import { X } from "lucide-react"; // یا آیکون بستن خودتون
 
 interface NodeTooltipProps {
   nodeTooltipTitle: string | null;
@@ -21,10 +21,10 @@ export const NodeTooltip = ({
           isIconOnly
           color="danger"
           size="sm"
-          variant="light"
+          variant="flat"
           onPress={onClose}
         >
-          <img src={closeIcon} width={25} alt="" />
+          <X size={20} />
         </Button>
         <p>یال های خارج شده از {nodeTooltipTitle}</p>
       </CardHeader>

@@ -1,10 +1,5 @@
 import { Card, CardBody, CardHeader } from "@heroui/card";
-
-interface PaletteOption {
-  key: string;
-  label: string;
-  gradient: string;
-}
+import { PaletteOption } from "../../../types/types";
 
 interface ColorPaletteCardProps {
   options: PaletteOption[];

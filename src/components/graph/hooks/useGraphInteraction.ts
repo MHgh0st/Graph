@@ -15,8 +15,12 @@ export const useGraphInteraction = (
     null
   );
   const [cardContentFlag, setCardContentFlag] = useState<
-    "nodeTooltip" | "pathfinding" | null
+    "nodeTooltip" | "edgeTooltip" | null
   >(null);
+  const [edgeTooltipTitle, setEdgeTooltipTitle] = useState<string | null>(null);
+  const [edgeTooltipData, setEdgeTooltipData] = useState<
+    Array<{ label: string; value: string | number }>
+  >([]);
   const [nodeTooltipTitle, setNodeTooltipTitle] = useState<string | null>(null);
   const [nodeTooltipData, setNodeTooltipData] = useState<
     Array<{ targetLabel: string; weight: string | number }>
@@ -74,8 +78,12 @@ export const useGraphInteraction = (
 
   const handleEdgeSelect = useCallback(
     (edgeId: string) => {
+      // ۱. اول اطلاعات یال رو پیدا کن
+      const selectedEdge = allEdges.find((e) => e.id === edgeId);
+
+      // ۲. استایل یال‌ها رو آپدیت کن
       setLayoutedEdges((prevEdges) => {
-        const styledEdges = prevEdges.map((edge) => {
+        return prevEdges.map((edge) => {
           const isSelected = edge.id === edgeId;
           const originalStroke =
             (edge.data as any)?.originalStroke ||
@@ -100,22 +108,55 @@ export const useGraphInteraction = (
             },
           };
         });
-
-        const selectedEdge = styledEdges.find((edge) => edge.selected);
-        if (selectedEdge) {
-          const otherEdges = styledEdges.filter((edge) => !edge.selected);
-          return [...otherEdges, selectedEdge];
-        }
-        return styledEdges;
       });
-      setActiveTooltipEdgeId((currentActiveId) =>
-        currentActiveId === edgeId ? null : edgeId
-      );
+
+      // ۳. حالا state های کارت رو تنظیم کن
+      if (selectedEdge) {
+        const dataToShow = [];
+        if (selectedEdge.label) {
+          dataToShow.push({
+            label: "فراوانی (Frequency)",
+            value: selectedEdge.label,
+          });
+        }
+        if (selectedEdge.data?.Mean_Duration_Seconds) {
+          dataToShow.push({
+            label: "میانگین زمان (ثانیه)",
+            value: selectedEdge.data.Mean_Duration_Seconds.toFixed(2),
+          });
+        }
+        setEdgeTooltipData(dataToShow);
+
+        const sourceNode = allNodes.find((n) => n.id === selectedEdge.source);
+        const targetNode = allNodes.find((n) => n.id === selectedEdge.target);
+        setEdgeTooltipTitle(
+          // `یال: ${sourceNode?.data?.label || selectedEdge.source} → ${targetNode?.data?.label || selectedEdge.target}`
+          `از یال ${sourceNode?.data?.label || selectedEdge.source} به ${targetNode?.data?.label || selectedEdge.target}`
+        );
+
+        setCardContentFlag("edgeTooltip");
+        setActiveTooltipEdgeId(edgeId); // <-- فقط یک بار اینجا ست بشه
+      } else {
+        // اگر یالی پیدا نشد (که نباید اتفاق بیفته) کارت رو ببند
+        setCardContentFlag(null);
+        setActiveTooltipEdgeId(null);
+      }
+
+      // ۴. نودها رو از انتخاب خارج کن
       setLayoutedNodes((prevNodes) =>
         prevNodes.map((node) => ({ ...node, selected: false }))
       );
     },
-    [setLayoutedEdges, setLayoutedNodes]
+    [
+      allEdges,
+      allNodes,
+      setLayoutedEdges,
+      setLayoutedNodes,
+      setEdgeTooltipData,
+      setEdgeTooltipTitle,
+      setCardContentFlag,
+      setActiveTooltipEdgeId,
+    ]
   );
 
   const handleSelectPath = (path: Path, index: number) => {
@@ -211,7 +252,6 @@ export const useGraphInteraction = (
         return;
       }
 
-      setCardContentFlag("pathfinding");
       setActiveTooltipEdgeId(null);
 
       if (!pathStartNodeId) {
@@ -257,13 +297,14 @@ export const useGraphInteraction = (
       allNodes,
       setLayoutedEdges,
       setLayoutedNodes,
-      allEdges,
     ]
   );
 
   const closeNodeTooltip = () => {
     setCardContentFlag(null);
     setNodeTooltipTitle(null);
+    setEdgeTooltipTitle(null);
+    setActiveTooltipEdgeId(null);
     setLayoutedNodes((nds) => nds.map((n) => ({ ...n, selected: false })));
     setLayoutedEdges((prevEdges) =>
       prevEdges.map((edge) => {
@@ -314,6 +355,8 @@ export const useGraphInteraction = (
     cardContentFlag,
     nodeTooltipTitle,
     nodeTooltipData,
+    edgeTooltipTitle,
+    edgeTooltipData,
     isPathFinding,
     pathStartNodeId,
     pathEndNodeId,
