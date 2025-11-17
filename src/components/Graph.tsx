@@ -175,15 +175,19 @@ export default function Graph({ className, utils }: GraphProps) {
 
   const edgesForRender = useMemo(() => {
     const isHighlighting = selectedPathEdges.size > 0;
-    return layoutedEdges.map((edge) => {
+
+    const processedEdges = layoutedEdges.map((edge) => {
       const isHighlighted = selectedPathEdges.has(edge.id);
+      const isSelected =
+        activeTooltipEdgeId !== null && edge.id === activeTooltipEdgeId;
       const opacity = isHighlighting && !isHighlighted ? 0.1 : 1;
+
       return {
         ...edge,
         data: {
           ...edge.data,
           onEdgeSelect: handleEdgeSelect,
-          isTooltipVisible: edge.id === activeTooltipEdgeId,
+          isTooltipVisible: isSelected,
         },
         onClick: () => handleEdgeSelect(edge.id),
         style: {
@@ -193,8 +197,22 @@ export default function Graph({ className, utils }: GraphProps) {
           opacity: isPathFinding && !isHighlighted ? 0.2 : opacity,
           transition: "all 0.3s ease",
         },
+        // zIndex فقط زمانی تنظیم شود که واقعاً انتخاب شده باشد
+        zIndex: isSelected ? 1000 : isHighlighted ? 500 : undefined,
       };
     });
+
+    // فقط زمانی sort کن که یال انتخاب‌شده وجود داشته باشد
+    if (activeTooltipEdgeId !== null) {
+      return processedEdges.sort((a, b) => {
+        if (a.id === activeTooltipEdgeId) return 1;
+        if (b.id === activeTooltipEdgeId) return -1;
+        return 0;
+      });
+    }
+
+    // اگر هیچ یالی انتخاب نشده، ترتیب اولیه را حفظ کن
+    return processedEdges;
   }, [
     layoutedEdges,
     handleEdgeSelect,

@@ -99,7 +99,7 @@ export const useGraphInteraction = (
             style: {
               ...(edge.style || {}),
               strokeWidth: isSelected ? 4 : originalStrokeWidth,
-              stroke: isSelected ? "#ef4444" : originalStroke,
+              stroke: isSelected ? "#FFC107" : originalStroke,
               zIndex: isSelected && 500,
               strokeOpacity: isSelected
                 ? 1
