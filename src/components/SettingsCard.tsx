@@ -8,11 +8,12 @@ interface Props {
     onChange: (value: string) => void;
     className?: string;
   };
+  className?: string;
 }
 
-export default function SettingsCard({ ColorPaletteProps }: Props) {
+export default function SettingsCard({ ColorPaletteProps, className }: Props) {
   return (
-    <div className="flex flex-col gap-y-2">
+    <div className={`flex flex-col gap-y-2 ${className}`}>
       <p className="text-lg font-semibold">انتخاب طیف رنگی</p>
       <ColorPaletteCard
         options={ColorPaletteProps.options}

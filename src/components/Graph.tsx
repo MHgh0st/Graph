@@ -63,9 +63,14 @@ interface UtilsProps {
 interface GraphProps {
   className?: string;
   utils: UtilsProps;
+  filteredNodeIds?: Set<string>;
 }
 
-export default function Graph({ className, utils }: GraphProps) {
+export default function Graph({
+  className,
+  utils,
+  filteredNodeIds,
+}: GraphProps) {
   const {
     layoutedNodes,
     layoutedEdges,
@@ -141,7 +146,11 @@ export default function Graph({ className, utils }: GraphProps) {
 
   const nodesForRender = useMemo(() => {
     const isHighlighting = selectedPathNodes.size > 0;
-    return layoutedNodes.map((node) => {
+    const nodesToShow =
+      filteredNodeIds && filteredNodeIds.size > 0
+        ? layoutedNodes.filter((node) => filteredNodeIds.has(node.id))
+        : null;
+    return nodesToShow?.map((node) => {
       const isHighlighted = selectedPathNodes.has(node.id);
 
       const isStart = node.id === pathStartNodeId;
@@ -171,6 +180,7 @@ export default function Graph({ className, utils }: GraphProps) {
     selectedPathNodes,
     pathStartNodeId,
     pathEndNodeId,
+    filteredNodeIds,
   ]);
 
   const edgesForRender = useMemo(() => {

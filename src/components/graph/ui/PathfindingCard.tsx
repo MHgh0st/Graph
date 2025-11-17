@@ -22,6 +22,7 @@ interface PathfindingCardProps {
     averageDuration: number;
   };
   handleNodeClick: (_event: React.MouseEvent, node: Node) => void;
+  className?: string;
 }
 
 export const PathfindingCard = ({
@@ -34,6 +35,7 @@ export const PathfindingCard = ({
   selectedIndex,
   calculatePathDuration,
   handleNodeClick,
+  className,
 }: PathfindingCardProps) => {
   const [processedPaths, setProcessedPaths] = useState<Path[]>([]);
   const [sortedPaths, setSortedPaths] = useState<Path[]>([]);
@@ -94,6 +96,10 @@ export const PathfindingCard = ({
     processChunk();
   }, [paths, calculatePathDuration]);
 
+  useEffect(() => {
+    setSearchedNodes(allNodes);
+  }, [allNodes]);
+
   // تابع مرتب‌سازی
   const handleSortPaths = () => {
     if (isSorted) return; // اگر قبلاً مرتب شده، کاری نکن
@@ -140,7 +146,7 @@ export const PathfindingCard = ({
   ];
 
   return (
-    <div className="flex flex-col h-full">
+    <div className={`flex flex-col h-full ${className}`}>
       {/* بخش‌های مربوط به انتخاب نود شروع و پایان بدون تغییر */}
       <div className="w-full p-2 flex-shrink-0">
         {!startNodeId && <p>لطفاً نود شروع را روی گراف انتخاب کنید...</p>}

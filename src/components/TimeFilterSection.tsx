@@ -42,18 +42,23 @@ export default function TimeFilterSection({
           placeholder="هفته"
           onChange={(value) => changeDate(value, setWeek)}
           value={week}
+          minValue={0}
         />
         <NumberInput
           size="sm"
           placeholder="روز"
           onChange={(value) => changeDate(value, setDay)}
           value={day}
+          minValue={0}
+          maxValue={6}
         />
         <NumberInput
           size="sm"
           placeholder="ساعت"
           value={hour}
           onChange={(value) => changeDate(value, setHour)}
+          minValue={0}
+          maxValue={23}
         />
       </div>
     </div>

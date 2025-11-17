@@ -92,7 +92,7 @@ export default function Filters({
   return (
     <>
       <Form
-        className="h-full flex- flex-col justify-between"
+        className={`h-full flex- flex-col justify-between ${className}`}
         onSubmit={onSubmit}
       >
         <div className="w-full space-y-4" dir="ltr">
@@ -117,6 +117,7 @@ export default function Filters({
             <NumberInput
               label="حداقل تعداد پرونده ها را وارد کنید"
               value={caseIdRange?.min}
+              minValue={0}
               onChange={(value) =>
                 setCaseIdRange((prev) => ({
                   max: prev?.max,
@@ -127,6 +128,7 @@ export default function Filters({
             <NumberInput
               label="حداکثر تعداد پرونده ها را وارد کنید"
               value={caseIdRange?.max}
+              minValue={0}
               onChange={(value) =>
                 setCaseIdRange((prev) => ({
                   max: Number(value),

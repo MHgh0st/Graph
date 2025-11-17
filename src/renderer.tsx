@@ -5,7 +5,7 @@ import { Card, CardHeader, CardBody } from "@heroui/card";
 import { Button } from "@heroui/button";
 import { X } from "lucide-react";
 import { HeroUIProvider } from "@heroui/system";
-import { ReactFlowProvider } from "@xyflow/react";
+import { ReactFlowProvider, Node } from "@xyflow/react";
 import ProcessData from "./utils/ProcessData";
 import FileUploader from "./components/FileUploader";
 import Graph from "./components/Graph";
@@ -28,6 +28,11 @@ function App() {
   const [isSideCardShow, setIsSideCardShow] = useState<boolean>(true);
   const [selectedColorPalette, setSelectedColorPalette] =
     useState<string>("default");
+  const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(
+    new Set()
+  );
+  const [filteredNodes, setFilteredNodes] = useState<Node[]>([]);
+  const [filtersApplied, setFiltersApplied] = useState<boolean>(false);
 
   const {
     allNodes,
@@ -76,6 +81,7 @@ function App() {
       case 2:
         setIsLoadingRenderer(true);
         setGraphData(await ProcessData(dataFilePath, filters));
+        setFiltersApplied(true); // فیلترها اعمال شدن، منتظر انتخاب گره‌ها هستیم
         setIsLoadingRenderer(false);
         break;
     }
@@ -93,6 +99,13 @@ function App() {
       resetPathfinding();
     }
   }, [sideBarActiveTab]);
+
+  // وقتی گره‌هایی انتخاب شدن، فیلترها دیگر اعمال نشده محسوب میشن
+  useEffect(() => {
+    if (selectedNodeIds.size > 0 && filtersApplied) {
+      setFiltersApplied(false);
+    }
+  }, [selectedNodeIds, filtersApplied]);
 
   return (
     <>
@@ -140,7 +153,47 @@ function App() {
                     </p>
                   </CardHeader>
                   <CardBody className="text-right">
-                    {sideBarActiveTab === "Filter" ? (
+                    <Filters
+                      submit={submit}
+                      isLoading={isLoadingRenderer}
+                      className={`${sideBarActiveTab !== "Filter" && "hidden"}`}
+                    />
+                    <PathfindingCard
+                      startNodeId={pathStartNodeId}
+                      endNodeId={pathEndNodeId}
+                      paths={foundPaths}
+                      allNodes={allNodes}
+                      onSelectPath={handleSelectPath}
+                      selectedIndex={selectedPathIndex}
+                      calculatePathDuration={calculatePathDuration}
+                      isLoading={isPathfindingLoading}
+                      handleNodeClick={handleNodeClick}
+                      className={`${(sideBarActiveTab !== "Routing" || !graphData) && "hidden"}`}
+                    />
+                    <div
+                      className={`w-full h-full flex justify-center items-center text-center text-3xl font-bold leading-15 ${sideBarActiveTab === "Routing" && !graphData ? "" : "hidden"}`}
+                    >
+                      لطفا ابتدا داده ی گراف را از تب فیلتر ها انتخاب کنید.
+                    </div>
+                    <SettingsCard
+                      ColorPaletteProps={{
+                        options: paletteOptions,
+                        value: selectedColorPalette,
+                        onChange: (value) => {
+                          setSelectedColorPalette(value);
+                        },
+                      }}
+                      className={`${sideBarActiveTab !== "Settings" && "hidden"}`}
+                    />
+                    <NodesFilterCard
+                      Nodes={allNodes}
+                      selectedNodeIds={selectedNodeIds}
+                      onSelectionChange={setSelectedNodeIds}
+                      onFilteredNodesChange={setFilteredNodes}
+                      className={`${sideBarActiveTab !== "Nodes" && "hidden"}`}
+                    />
+
+                    {/* {sideBarActiveTab === "Filter" ? (
                       <Filters submit={submit} isLoading={isLoadingRenderer} />
                     ) : sideBarActiveTab === "Routing" ? (
                       graphData ? (
@@ -179,7 +232,7 @@ function App() {
                       />
                     ) : (
                       <NodesFilterCard Nodes={allNodes} />
-                    )}
+                    )} */}
                   </CardBody>
                 </Card>
               )}
@@ -190,8 +243,22 @@ function App() {
                   <p>در حال پردازش داده‌ها، لطفاً منتظر بمانید...</p>
                 )}
 
-                {!isLoadingRenderer && graphData && (
+                {/* اگر فیلترها اعمال شده ولی هنوز گره‌ای انتخاب نشده، متن مناسب نمایش داده شود */}
+                {!isLoadingRenderer &&
+                  graphData &&
+                  filtersApplied &&
+                  selectedNodeIds.size === 0 && (
+                    <div className="flex justify-center items-center h-full">
+                      <h2 className="text-xl font-bold text-center leading-15">
+                        فیلترها اعمال شدند. لطفاً از تب "گره‌ها" گره‌های مورد
+                        نظر خود را انتخاب کنید تا گراف نمایش داده شود.
+                      </h2>
+                    </div>
+                  )}
+
+                {!isLoadingRenderer && graphData && !filtersApplied && (
                   <Graph
+                    filteredNodeIds={selectedNodeIds}
                     className="w-full h-full"
                     utils={{
                       GraphLayout: {
