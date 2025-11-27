@@ -6,7 +6,7 @@ import { Input } from "@heroui/input";
 import { Search } from "lucide-react";
 import displayIcon from "../../../assets/display-icon.svg";
 import { Chip } from "@heroui/chip";
-import type { Path } from "src/types/types";
+import type { Path, ExtendedPath } from "src/types/types";
 import { useState, useEffect } from "react";
 
 interface PathfindingCardProps {
@@ -264,6 +264,14 @@ export const PathfindingCard = ({
                       {currentPaths.map((path, index) => {
                         const actualIndex = startIndex + index;
 
+                        const extPath = path as ExtendedPath;
+
+                        const nodesToShow =
+                          extPath._fullPathNodes || path.nodes;
+                        const startIdx = extPath._startIndex ?? 0;
+                        const endIdx =
+                          extPath._endIndex ?? path.nodes.length - 1;
+
                         const duration = {
                           totalDuration: path.totalDuration ?? 0,
                           averageDuration: path.averageDuration ?? 0,
@@ -272,7 +280,8 @@ export const PathfindingCard = ({
                         return (
                           <AccordionItem
                             key={actualIndex}
-                            title={`مسیر ${actualIndex + 1} ( دارای ${path.nodes.length - 2} راس و ${path.edges.length} یال )`}
+                            // title={`مسیر ${actualIndex + 1} ( دارای ${path.nodes.length - 2} راس و ${path.edges.length} یال )`}
+                            title={`مسیر ${actualIndex + 1} (تعداد: ${extPath._frequency || "?"})`}
                             startContent={
                               <div
                                 onClick={(e) => e.stopPropagation()}
@@ -309,23 +318,62 @@ export const PathfindingCard = ({
                             classNames={{ indicator: "cursor-pointer" }}
                           >
                             <div className="text-sm text-gray-500">
-                              میانگین زمان:{" "}
-                              {formatDuration(duration.averageDuration)} | کل
-                              زمان: {formatDuration(duration.totalDuration)}
+                              مدت زمان میانگین :{" "}
+                              {formatDuration(path.averageDuration || 0)}
                             </div>
-                            {path.nodes.slice(0, 10).map((id, i) => (
-                              <p
-                                key={i}
-                                className="text-sm text-gray-500 leading-6"
-                              >
-                                {`${i} - ${getNodeLabel(id)}`}
-                              </p>
-                            ))}
-                            {path.nodes.length > 10 && (
-                              <p className="text-sm text-gray-400">
-                                ... و {path.nodes.length - 10} نود دیگر
-                              </p>
-                            )}
+
+                            <div className="flex flex-col gap-1 p-2 ml-2">
+                              {nodesToShow.map((id, i) => {
+                                // تشخیص وضعیت گره در مسیر
+                                const isStart = i === startIdx;
+                                const isEnd = i === endIdx;
+                                const isInPath = i > startIdx && i < endIdx;
+                                const isOutside = i < startIdx || i > endIdx;
+
+                                return (
+                                  <div
+                                    key={i}
+                                    className={`flex items-center text-sm ${isOutside ? "opacity-50" : "opacity-100"}`}
+                                  >
+                                    <span className="w-6 text-xs text-gray-500">
+                                      {i + 1}.
+                                    </span>
+
+                                    <span
+                                      className={`
+                                      ${isStart ? "font-bold text-success-600" : ""}
+                                      ${isEnd ? "font-bold text-danger-600" : ""}
+                                      ${isInPath ? "text-gray-800" : ""}
+                                      ${isOutside ? "text-gray-500" : ""}
+                                   `}
+                                    >
+                                      {getNodeLabel(id)}
+                                    </span>
+
+                                    {isStart && (
+                                      <Chip
+                                        size="sm"
+                                        color="success"
+                                        variant="flat"
+                                        className="mr-2 h-5 text-[10px]"
+                                      >
+                                        شروع
+                                      </Chip>
+                                    )}
+                                    {isEnd && (
+                                      <Chip
+                                        size="sm"
+                                        color="danger"
+                                        variant="flat"
+                                        className="mr-2 h-5 text-[10px]"
+                                      >
+                                        پایان
+                                      </Chip>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </AccordionItem>
                         );
                       })}

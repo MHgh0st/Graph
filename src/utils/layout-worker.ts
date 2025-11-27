@@ -18,7 +18,16 @@ self.onmessage = async (event: MessageEvent) => {
     case "PROCESS_INITIAL_DATA": {
       console.log("Worker: Processing initial raw data...");
 
-      const graphData: GraphDataItem[] = payload;
+      // const graphData: GraphDataItem[] = payload;
+      const {
+        graphData,
+        startActivities,
+        endActivities,
+      }: {
+        graphData: GraphDataItem[];
+        startActivities: string[];
+        endActivities: string[];
+      } = payload;
       const nodeWidth = 250; // عرض پیش‌فرض
 
       // ... (تمام کدهای مربوط به scaleEdgeWidth, scaleEdgeColor, ... تا انتها) ...
@@ -37,6 +46,12 @@ self.onmessage = async (event: MessageEvent) => {
         return `rgba(59, 130, 246, ${intensity})`;
       };
 
+      const validNodeIds = new Set<string>();
+      graphData.forEach((item) => {
+        validNodeIds.add(item.Source_Activity);
+        validNodeIds.add(item.Target_Activity);
+      });
+
       const sourceActivities = new Set(
         graphData.map((item) => item.Source_Activity)
       );
@@ -44,12 +59,6 @@ self.onmessage = async (event: MessageEvent) => {
         graphData.map((item) => item.Target_Activity)
       );
 
-      const trueStartNodes = [...sourceActivities].filter(
-        (name) => !targetActivities.has(name)
-      );
-      const trueEndNodes = [...targetActivities].filter(
-        (name) => !sourceActivities.has(name)
-      );
       const allActivityNames = new Set([
         ...sourceActivities,
         ...targetActivities,
@@ -102,27 +111,25 @@ self.onmessage = async (event: MessageEvent) => {
         };
       });
 
-      const startEdges: Edge[] = trueStartNodes.map((targetNodeId) => ({
-        id: `start-to-${targetNodeId}`,
-        source: startNode.id,
-        target: targetNodeId,
-        data: {
-          originalStroke: "#a0aec0",
-          originalStrokeWidth: 1.5,
-        },
-        style: { stroke: "#a0aec0", strokeDasharray: "5 5" },
-      }));
+      const startEdges: Edge[] = startActivities
+        .filter((targetId) => validNodeIds.has(targetId))
+        .map((targetNodeId) => ({
+          id: `start-to-${targetNodeId}`,
+          source: startNode.id,
+          target: targetNodeId,
+          data: { originalStroke: "#a0aec0", originalStrokeWidth: 1.5 },
+          style: { stroke: "#a0aec0", strokeDasharray: "5 5" },
+        }));
 
-      const endEdges: Edge[] = trueEndNodes.map((sourceNodeId) => ({
-        id: `${sourceNodeId}-to-end`,
-        source: sourceNodeId,
-        target: endNode.id,
-        data: {
-          originalStroke: "#a0aec0",
-          originalStrokeWidth: 1.5,
-        },
-        style: { stroke: "#a0aec0", strokeDasharray: "5 5" },
-      }));
+      const endEdges: Edge[] = endActivities
+        .filter((sourceId) => validNodeIds.has(sourceId))
+        .map((sourceNodeId) => ({
+          id: `${sourceNodeId}-to-end`,
+          source: sourceNodeId,
+          target: endNode.id,
+          data: { originalStroke: "#a0aec0", originalStrokeWidth: 1.5 },
+          style: { stroke: "#a0aec0", strokeDasharray: "5 5" },
+        }));
 
       allEdges = [...allEdges, ...startEdges, ...endEdges];
 

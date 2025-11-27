@@ -10,7 +10,13 @@ import ProcessData from "./utils/ProcessData";
 import FileUploader from "./components/FileUploader";
 import Graph from "./components/Graph";
 import Filters from "./components/Filters";
-import { FilterTypes, SidebarTab } from "./types/types";
+import {
+  FilterTypes,
+  SidebarTab,
+  GraphData,
+  Variant,
+  ProcessMiningData,
+} from "./types/types";
 import SideBar from "./components/SideBar";
 import { useGraphLayout } from "./components/graph/hooks/useGraphLayout";
 import { useGraphInteraction } from "./components/graph/hooks/useGraphInteraction";
@@ -22,7 +28,12 @@ function App() {
   const [dataFilePath, setDataFilePath] = useState<string | null>(null);
   const [isLoadingRenderer, setIsLoadingRenderer] = useState<boolean>(false);
   const [step, setStep] = useState<number>(1);
-  const [graphData, setGraphData] = useState<any[] | null>(null);
+  const [graphData, setGraphData] = useState<GraphData[] | null>(null);
+  const [variants, setVariants] = useState<Variant[] | null>(null);
+  const [startEndNodes, setStartEndNodes] = useState<{
+    start: string[];
+    end: string[];
+  }>(null);
   const [sideBarActiveTab, setSideBarActiveTab] =
     useState<SidebarTab>("Filter");
   const [isSideCardShow, setIsSideCardShow] = useState<boolean>(true);
@@ -42,7 +53,7 @@ function App() {
     loadingMessage,
     setLayoutedNodes,
     setLayoutedEdges,
-  } = useGraphLayout(graphData, selectedColorPalette);
+  } = useGraphLayout(graphData, selectedColorPalette, startEndNodes);
   const {
     activeTooltipEdgeId,
     cardContentFlag,
@@ -70,6 +81,7 @@ function App() {
   } = useGraphInteraction(
     allNodes,
     layoutedEdges,
+    variants,
     setLayoutedNodes,
     setLayoutedEdges
   );
@@ -78,18 +90,28 @@ function App() {
       case 1:
         setStep(2);
         break;
-      case 2:
+      case 2: {
         setIsLoadingRenderer(true);
-        setGraphData(await ProcessData(dataFilePath, filters));
-        setFiltersApplied(true); // فیلترها اعمال شدن، منتظر انتخاب گره‌ها هستیم
+        const data = (await ProcessData(
+          dataFilePath,
+          filters
+        )) as ProcessMiningData;
+        setGraphData(data.graphData);
+        setVariants(data.variants);
+        setStartEndNodes({
+          start: data.startActivities,
+          end: data.endActivities,
+        });
+        setFiltersApplied(true);
         setIsLoadingRenderer(false);
         break;
+      }
     }
   };
 
   useEffect(() => {
-    console.log("graph data: ", graphData);
-  }, [graphData]);
+    console.log("startEndNodes: ", startEndNodes);
+  }, [startEndNodes]);
 
   useEffect(() => {
     if (sideBarActiveTab == "Routing" && graphData) {
@@ -192,47 +214,6 @@ function App() {
                       onFilteredNodesChange={setFilteredNodes}
                       className={`${sideBarActiveTab !== "Nodes" && "hidden"}`}
                     />
-
-                    {/* {sideBarActiveTab === "Filter" ? (
-                      <Filters submit={submit} isLoading={isLoadingRenderer} />
-                    ) : sideBarActiveTab === "Routing" ? (
-                      graphData ? (
-                        <PathfindingCard
-                          startNodeId={pathStartNodeId}
-                          endNodeId={pathEndNodeId}
-                          paths={foundPaths}
-                          allNodes={allNodes}
-                          onSelectPath={handleSelectPath}
-                          selectedIndex={selectedPathIndex}
-                          calculatePathDuration={calculatePathDuration}
-                          isLoading={isPathfindingLoading}
-                          handleNodeClick={handleNodeClick}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex justify-center items-center text-center text-3xl font-bold leading-15">
-                          لطفا ابتدا داده ی گراف را از تب فیلتر ها انتخاب کنید.
-                        </div>
-                      )
-                    ) : sideBarActiveTab === "Settings" ? (
-                      // <ColorPaletteCard
-                      //   options={paletteOptions}
-                      //   value={selectedColorPalette}
-                      //   onChange={(value) => {
-                      //     setSelectedColorPalette(value);
-                      //   }}
-                      // />
-                      <SettingsCard
-                        ColorPaletteProps={{
-                          options: paletteOptions,
-                          value: selectedColorPalette,
-                          onChange: (value) => {
-                            setSelectedColorPalette(value);
-                          },
-                        }}
-                      />
-                    ) : (
-                      <NodesFilterCard Nodes={allNodes} />
-                    )} */}
                   </CardBody>
                 </Card>
               )}

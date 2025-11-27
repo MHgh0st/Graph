@@ -22,7 +22,14 @@ const layoutOptions = {
   "spacing.nodeNodeBetweenLayers": "50",
 };
 
-export const useGraphLayout = (data: any[] | null, colorPaletteKey: string) => {
+export const useGraphLayout = (
+  data: any[] | null,
+  colorPaletteKey: string,
+  startEndNodes: {
+    start: string[];
+    end: string[];
+  }
+) => {
   const [allNodes, setAllNodes] = useState<Node[]>([]);
   const [allEdges, setAllEdges] = useState<Edge[]>([]);
   const [layoutedNodes, setLayoutedNodes] = useState<Node[]>([]);
@@ -67,9 +74,13 @@ export const useGraphLayout = (data: any[] | null, colorPaletteKey: string) => {
     setLoadingMessage("در حال پردازش اولیه داده‌ها...");
     workerRef.current?.postMessage({
       type: "PROCESS_INITIAL_DATA",
-      payload: data,
+      payload: {
+        graphData: data,
+        startActivities: startEndNodes.start,
+        endActivities: startEndNodes.end,
+      },
     });
-  }, [data]);
+  }, [data, startEndNodes]);
 
   useEffect(() => {
     if (allNodes.length === 0 || allEdges.length === 0) return;
@@ -153,7 +164,7 @@ export const useGraphLayout = (data: any[] | null, colorPaletteKey: string) => {
         console.error("Component: ELK layout failed:", e);
         setIsLoading(false);
       });
-  }, [allNodes, allEdges, colorPaletteKey]);
+  }, [allNodes, allEdges, colorPaletteKey, startEndNodes]);
 
   return {
     allNodes,

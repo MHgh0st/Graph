@@ -14,6 +14,14 @@ export interface Path {
   averageDuration?: number;
 }
 
+export interface ExtendedPath extends Path {
+  _variantDuration?: number; // زمان دقیق محاسبه شده از واریانت
+  _frequency?: number;
+  _fullPathNodes?: string[]; // لیست تمام گره‌های این واریانت
+  _startIndex?: number; // ایندکس گره شروع در مسیر کامل
+  _endIndex?: number; // ایندکس گره پایان در مسیر کامل
+}
+
 export interface PaletteOption {
   key: string;
   label: string;
@@ -21,3 +29,26 @@ export interface PaletteOption {
 }
 
 export type SidebarTab = "Filter" | "Routing" | "Settings" | "Nodes";
+
+export interface GraphData {
+  Source_Activity: string;
+  Target_Activity: string;
+  Mean_Duration_Seconds: number;
+  Tooltip_Total_Time: string;
+  Tooltip_Mean_Time: string;
+  Weight_Value: number;
+  Edge_Label: string;
+}
+export interface Variant {
+  Variant_Path: string[];
+  Frequency: number;
+  Avg_Timings: number[];
+  Total_Timings: number[];
+  Percentage: number;
+}
+export interface ProcessMiningData {
+  graphData: GraphData[];
+  variants: Variant[];
+  startActivities: string[];
+  endActivities: string[];
+}

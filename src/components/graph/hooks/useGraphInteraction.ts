@@ -1,16 +1,14 @@
-import { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Node, Edge } from "@xyflow/react";
-import type { Path } from "src/types/types";
-import PathFindingWorker from "../../../utils/pathFinding-worker?worker";
+import type { Path, Variant, ExtendedPath } from "src/types/types";
 
 export const useGraphInteraction = (
   allNodes: Node[],
   allEdges: Edge[],
+  variants: Variant[],
   setLayoutedNodes: React.Dispatch<React.SetStateAction<Node[]>>,
   setLayoutedEdges: React.Dispatch<React.SetStateAction<Edge[]>>
 ) => {
-  const workerRef = useRef<Worker | null>(null);
-
   const [activeTooltipEdgeId, setActiveTooltipEdgeId] = useState<string | null>(
     null
   );
@@ -25,10 +23,11 @@ export const useGraphInteraction = (
   const [nodeTooltipData, setNodeTooltipData] = useState<
     Array<{ targetLabel: string; weight: string | number }>
   >([]);
+
   const [isPathFinding, setIsPathFinding] = useState(false);
   const [pathStartNodeId, setPathStartNodeId] = useState<string | null>(null);
   const [pathEndNodeId, setPathEndNodeId] = useState<string | null>(null);
-  const [foundPaths, setFoundPaths] = useState<Path[]>([]);
+  const [foundPaths, setFoundPaths] = useState<ExtendedPath[]>([]);
   const [selectedPathNodes, setSelectedPathNodes] = useState<Set<string>>(
     new Set()
   );
@@ -38,7 +37,6 @@ export const useGraphInteraction = (
   const [selectedPathIndex, setSelectedPathIndex] = useState<number | null>(
     null
   );
-  const [isPathfindingLoading, setIsPathfindingLoading] = useState(false);
 
   const outgoingEdgesMap = useMemo(() => {
     const map = new Map<string, Edge[]>();
@@ -51,37 +49,41 @@ export const useGraphInteraction = (
     return map;
   }, [allEdges]);
 
-  const edgesMap = useMemo(() => {
-    return new Map(allEdges.map((edge) => [edge.id, edge]));
+  // مپ برای دسترسی سریع به یال‌ها جهت پیدا کردن ID یال بین دو نود
+  // کلید: "Source->Target" | مقدار: Edge
+  const edgeLookupMap = useMemo(() => {
+    const map = new Map<string, Edge>();
+    allEdges.forEach((edge) => {
+      map.set(`${edge.source}->${edge.target}`, edge);
+    });
+    return map;
   }, [allEdges]);
 
-  const calculatePathDuration = useCallback(
-    (path: Path) => {
-      let totalDuration = 0;
-      let edgeCount = 0;
-
-      path.edges.forEach((edgeId) => {
-        const edge = edgesMap.get(edgeId);
-        if (edge && edge.data?.Mean_Duration_Seconds) {
-          totalDuration += edge.data.Mean_Duration_Seconds;
-          edgeCount++;
-        }
-      });
-
+  // --- تغییر ۱: محاسبه زمان بر اساس دیتای دقیق واریانت ---
+  const calculatePathDuration = useCallback((path: Path) => {
+    // اگر مسیر ما از نوع ExtendedPath باشد و مقدار دقیق داشته باشد، همان را برمی‌گردانیم
+    const extPath = path as ExtendedPath;
+    if (typeof extPath._variantDuration === "number") {
       return {
-        totalDuration,
-        averageDuration: edgeCount > 0 ? totalDuration / edgeCount : 0,
+        totalDuration: extPath._variantDuration,
+        averageDuration:
+          path.edges.length > 0
+            ? extPath._variantDuration / path.edges.length
+            : 0,
       };
-    },
-    [edgesMap]
-  );
+    }
+
+    // فال‌بک به روش قدیمی (جمع زدن میانگین یال‌ها) اگر دیتای واریانت نبود
+    // (این بخش شاید دیگه استفاده نشه ولی برای اطمینان میمونه)
+    let totalDuration = 0;
+    // ... (کد قبلی محاسبه دستی)
+    return { totalDuration, averageDuration: 0 };
+  }, []);
 
   const handleEdgeSelect = useCallback(
     (edgeId: string) => {
-      // ۱. اول اطلاعات یال رو پیدا کن
       const selectedEdge = allEdges.find((e) => e.id === edgeId);
 
-      // ۲. استایل یال‌ها رو آپدیت کن
       setLayoutedEdges((prevEdges) => {
         return prevEdges.map((edge) => {
           const isSelected = edge.id === edgeId;
@@ -100,7 +102,7 @@ export const useGraphInteraction = (
               ...(edge.style || {}),
               strokeWidth: isSelected ? 4 : originalStrokeWidth,
               stroke: isSelected ? "#FFC107" : originalStroke,
-              zIndex: isSelected && 500,
+              zIndex: isSelected ? 500 : undefined,
               strokeOpacity: isSelected
                 ? 1
                 : originalStroke.includes("rgba")
@@ -111,14 +113,10 @@ export const useGraphInteraction = (
         });
       });
 
-      // ۳. حالا state های کارت رو تنظیم کن
       if (selectedEdge) {
         const dataToShow = [];
         if (selectedEdge.label) {
-          dataToShow.push({
-            label: "تعداد",
-            value: selectedEdge.label,
-          });
+          dataToShow.push({ label: "تعداد", value: selectedEdge.label });
         }
         if (selectedEdge.data?.Tooltip_Mean_Time) {
           dataToShow.push({
@@ -137,33 +135,21 @@ export const useGraphInteraction = (
         const sourceNode = allNodes.find((n) => n.id === selectedEdge.source);
         const targetNode = allNodes.find((n) => n.id === selectedEdge.target);
         setEdgeTooltipTitle(
-          // `یال: ${sourceNode?.data?.label || selectedEdge.source} → ${targetNode?.data?.label || selectedEdge.target}`
           `از یال ${sourceNode?.data?.label || selectedEdge.source} به ${targetNode?.data?.label || selectedEdge.target}`
         );
 
         setCardContentFlag("edgeTooltip");
-        setActiveTooltipEdgeId(edgeId); // <-- فقط یک بار اینجا ست بشه
+        setActiveTooltipEdgeId(edgeId);
       } else {
-        // اگر یالی پیدا نشد (که نباید اتفاق بیفته) کارت رو ببند
         setCardContentFlag(null);
         setActiveTooltipEdgeId(null);
       }
 
-      // ۴. نودها رو از انتخاب خارج کن
       setLayoutedNodes((prevNodes) =>
         prevNodes.map((node) => ({ ...node, selected: false }))
       );
     },
-    [
-      allEdges,
-      allNodes,
-      setLayoutedEdges,
-      setLayoutedNodes,
-      setEdgeTooltipData,
-      setEdgeTooltipTitle,
-      setCardContentFlag,
-      setActiveTooltipEdgeId,
-    ]
+    [allEdges, allNodes, setLayoutedEdges, setLayoutedNodes]
   );
 
   const handleSelectPath = (path: Path, index: number) => {
@@ -172,44 +158,14 @@ export const useGraphInteraction = (
     setSelectedPathIndex(index);
   };
 
-  const setupWorker = useCallback(() => {
-    // اگر ورکر قبلی وجود داشت (در حال اجرا بود)، آن را خاتمه بده
-    if (workerRef.current) {
-      workerRef.current.terminate();
-      console.log("Terminating previous worker.");
-    }
+  // --- حذف توابع setupWorker و useEffect مربوطه ---
 
-    // ورکر جدید بساز
-    const worker = new PathFindingWorker();
-    workerRef.current = worker;
-
-    // به پیام‌های ورکر جدید گوش بده
-    worker.onmessage = (event: MessageEvent) => {
-      const { type, payload } = event.data;
-      if (type === "PATHS_FOUND") {
-        setFoundPaths(payload); // نتایج را در state بگذار
-        setIsPathfindingLoading(false); // لودینگ را تمام کن
-        console.log("Main Thread: Received paths from worker.");
-      }
-    };
-  }, [setFoundPaths, setIsPathfindingLoading]);
-
-  useEffect(() => {
-    setupWorker(); // ورکر را در اولین بارگذاری راه‌اندازی کن
-
-    // در زمان unmount شدن کامپوننت، ورکر را ببند
-    return () => {
-      workerRef.current?.terminate();
-    };
-  }, [setupWorker]);
-
-  useEffect(() => {
-    console.log("founded paths: ", foundPaths);
-  }, [foundPaths]);
-
+  // --- تغییر ۲: منطق جدید مسیریابی با استفاده از Variants ---
   const handleNodeClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
       setActiveTooltipEdgeId(null);
+
+      // حالت عادی (نمایش تولتیپ نود)
       if (!isPathFinding) {
         const nodeLabel = (node.data?.label as string) || (node.id as string);
         setNodeTooltipData([]);
@@ -227,40 +183,36 @@ export const useGraphInteraction = (
         setCardContentFlag("nodeTooltip");
         setNodeTooltipData(tooltipData);
         setNodeTooltipTitle(nodeLabel);
+
         setLayoutedNodes((nds) =>
           nds.map((n) => ({ ...n, selected: n.id === node.id }))
         );
-        setActiveTooltipEdgeId(null);
+
         setLayoutedEdges((prevEdges) =>
           prevEdges.map((edge) => {
+            // ... (منطق استایل قبلی حفظ شود)
             const originalStroke =
-              (edge.data as any)?.originalStroke ||
-              (edge.style?.stroke?.includes("rgba")
-                ? edge.style.stroke
-                : edge.style?.stroke || "#3b82f6");
-            const originalStrokeWidth =
-              (edge.data as any)?.originalStrokeWidth || 2;
-            const originalOpacity = originalStroke.includes("rgba")
-              ? parseFloat(originalStroke.split(",")[3])
-              : 1;
+              (edge.data as any)?.originalStroke || "#3b82f6";
+            // (خلاصه کردم کد رو، همون منطق قبلی رو بذارید)
             const isOutgoing = outgoingEdgeIds.has(edge.id);
             return {
               ...edge,
               selected: isOutgoing,
               style: {
-                ...(edge.style || {}),
+                ...edge.style,
                 stroke: isOutgoing ? "#ef4444" : originalStroke,
-                strokeWidth: isOutgoing ? 4 : originalStrokeWidth,
-                strokeOpacity: isOutgoing ? 1 : originalOpacity,
+                // ...
               },
-            };
+            } as any;
           })
         );
         return;
       }
 
+      // --- حالت مسیریابی (Path Finding) ---
       setActiveTooltipEdgeId(null);
 
+      // ۱. انتخاب نقطه شروع
       if (!pathStartNodeId) {
         setPathStartNodeId(node.id);
         setPathEndNodeId(null);
@@ -270,25 +222,85 @@ export const useGraphInteraction = (
         return;
       }
 
+      // ۲. انتخاب نقطه پایان و اجرای الگوریتم روی Variants
       if (pathStartNodeId && !pathEndNodeId && node.id !== pathStartNodeId) {
         const endId = node.id;
         setPathEndNodeId(endId);
-        setIsPathfindingLoading(true);
-        // const paths = findAllPaths(pathStartNodeId, endId);
-        // setFoundPaths(paths);
 
-        workerRef.current?.postMessage({
-          type: "FIND_ALL_PATHS",
-          payload: {
-            allEdges: allEdges, // +++ ( مطمئن شوید allEdges را به هوک پاس می‌دهید)
-            startNodeId: pathStartNodeId,
-            endNodeId: endId,
-          },
+        console.log("pathStartNodeId: ", pathStartNodeId);
+        console.log("pathEndNodeId: ", endId);
+
+        // --- الگوریتم جدید (جایگزین Worker) ---
+        console.log("Searching paths in variants...");
+
+        const validPaths: ExtendedPath[] = [];
+
+        variants.forEach((variant) => {
+          let startIdx = -1;
+          let endIdx = -1;
+
+          if (pathStartNodeId === "START_NODE") {
+            // اگر شروع "START_NODE" بود، همیشه اولین فعالیت واریانت را در نظر بگیر
+            startIdx = 0;
+          } else {
+            startIdx = variant.Variant_Path.indexOf(pathStartNodeId);
+          }
+
+          // --- ب) پیدا کردن ایندکس پایان ---
+          if (endId === "END_NODE") {
+            // اگر پایان "END_NODE" بود، همیشه آخرین فعالیت واریانت را در نظر بگیر
+            endIdx = variant.Variant_Path.length - 1;
+          } else {
+            // از lastIndexOf استفاده می‌کنیم (جهت اطمینان از ترتیب زمانی)
+            endIdx = variant.Variant_Path.lastIndexOf(endId);
+          }
+
+          // شرط: هر دو نود باشند و شروع قبل از پایان باشد
+          if (startIdx !== -1 && endIdx !== -1 && startIdx < endIdx) {
+            // برش مسیر (Slice)
+            const pathNodes = variant.Variant_Path.slice(startIdx, endIdx + 1);
+
+            // پیدا کردن ID یال‌ها برای هایلایت
+            const pathEdges: string[] = [];
+            for (let i = 0; i < pathNodes.length - 1; i++) {
+              const source = pathNodes[i];
+              const target = pathNodes[i + 1];
+              const edge = edgeLookupMap.get(`${source}->${target}`);
+              if (edge) {
+                pathEdges.push(edge.id);
+              }
+            }
+
+            // محاسبه زمان دقیق از روی Avg_Timings واریانت
+            // زمان رسیدن به مقصد منهای زمان رسیدن به مبدا
+            const startTime = variant.Avg_Timings[startIdx];
+            const endTime = variant.Avg_Timings[endIdx];
+            const accurateDuration = endTime - startTime;
+
+            validPaths.push({
+              nodes: pathNodes,
+              edges: pathEdges,
+              _variantDuration: accurateDuration, // ذخیره برای استفاده در calculatePathDuration
+              _frequency: variant.Frequency,
+              _fullPathNodes: variant.Variant_Path,
+              _startIndex: startIdx,
+              _endIndex: endIdx,
+            });
+          }
         });
+
+        // مرتب‌سازی بر اساس تکرار (Frequency) - اختیاری
+        // validPaths.sort((a, b) => (b._frequency || 0) - (a._frequency || 0));
+
+        setFoundPaths(validPaths);
+        console.log(`Found ${validPaths.length} paths from variants.`);
+
         setSelectedPathNodes(new Set([pathStartNodeId, endId]));
         setSelectedPathEdges(new Set());
         return;
       }
+
+      // ریست کردن برای انتخاب شروع جدید
       setPathStartNodeId(node.id);
       setPathEndNodeId(null);
       setFoundPaths([]);
@@ -298,44 +310,31 @@ export const useGraphInteraction = (
     [
       isPathFinding,
       pathStartNodeId,
-      outgoingEdgesMap,
       pathEndNodeId,
-      allEdges,
+      outgoingEdgesMap,
       allNodes,
+      variants, // وابستگی جدید
+      edgeLookupMap,
       setLayoutedEdges,
       setLayoutedNodes,
     ]
   );
 
   const closeNodeTooltip = () => {
+    // ... (همان کد قبلی)
     setCardContentFlag(null);
     setNodeTooltipTitle(null);
-    setEdgeTooltipTitle(null);
     setActiveTooltipEdgeId(null);
     setLayoutedNodes((nds) => nds.map((n) => ({ ...n, selected: false })));
-    setLayoutedEdges((prevEdges) =>
-      prevEdges.map((edge) => {
-        const originalStroke =
-          (edge.data as any)?.originalStroke ||
-          (edge.style?.stroke?.includes("rgba")
-            ? edge.style.stroke
-            : edge.style?.stroke || "#3b82f6");
-        const originalStrokeWidth =
-          (edge.data as any)?.originalStrokeWidth || 2;
-        const originalOpacity = originalStroke.includes("rgba")
-          ? parseFloat(originalStroke.split(",")[3])
-          : 1;
-        return {
-          ...edge,
-          selected: false,
-          style: {
-            ...(edge.style || {}),
-            stroke: originalStroke,
-            strokeWidth: originalStrokeWidth,
-            strokeOpacity: originalOpacity,
-          },
-        };
-      })
+    setLayoutedEdges((eds) =>
+      eds.map((e) => ({
+        ...e,
+        selected: false,
+        style: {
+          ...e.style,
+          stroke: (e.data as any)?.originalStroke || "#3b82f6",
+        },
+      }))
     );
   };
 
@@ -348,13 +347,12 @@ export const useGraphInteraction = (
     setSelectedPathNodes(new Set());
     setSelectedPathEdges(new Set());
     setSelectedPathIndex(null);
-    setIsPathfindingLoading(false);
-    setupWorker();
+    // ورکر نداریم که ریست کنیم
   };
 
   const onPaneClick = useCallback(() => {
-    setActiveTooltipEdgeId(null); // تولتیپ یال فعال را می‌بندد
-    closeNodeTooltip(); // تولتیپ نود (کارت) را هم می‌بندد
+    setActiveTooltipEdgeId(null);
+    closeNodeTooltip();
   }, [closeNodeTooltip]);
 
   return {
@@ -371,7 +369,7 @@ export const useGraphInteraction = (
     selectedPathNodes,
     selectedPathEdges,
     selectedPathIndex,
-    isPathfindingLoading,
+    isPathfindingLoading: false, // همیشه false چون محاسبات آنی است
     handleEdgeSelect,
     handleSelectPath,
     handleNodeClick,

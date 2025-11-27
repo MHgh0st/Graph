@@ -71,10 +71,6 @@ export default function NodesFilterCard({
     onSelectionChange(allIds);
   };
 
-  const handleDeselectAll = () => {
-    onSelectionChange(new Set());
-  };
-
   return (
     <div className={`flex flex-col gap-y-2 ${className || ""}`}>
       <Input
@@ -90,7 +86,7 @@ export default function NodesFilterCard({
 
       {/* دکمه‌های انتخاب همه / لغو انتخاب همه */}
       {Nodes.length > 0 && (
-        <div className="flex gap-2">
+        <div className="flex gap-2 px-2">
           <Button
             size="sm"
             color="primary"
@@ -99,15 +95,6 @@ export default function NodesFilterCard({
             onPress={handleSelectAll}
           >
             انتخاب همه
-          </Button>
-          <Button
-            size="sm"
-            color="danger"
-            variant="flat"
-            fullWidth
-            onPress={handleDeselectAll}
-          >
-            لغو انتخاب
           </Button>
         </div>
       )}
@@ -120,7 +107,7 @@ export default function NodesFilterCard({
       )}
 
       {Nodes.length > 0 ? (
-        <div className="flex flex-col gap-y-3 max-h-[600px] overflow-y-auto mt-4">
+        <div className="flex flex-col gap-y-3 max-h-[670px] overflow-y-auto mt-4">
           {searchedNodes.map((node) => (
             <div key={node.id} className="flex items-center gap-1 px-2">
               <Checkbox

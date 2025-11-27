@@ -31,7 +31,7 @@ self.onmessage = async (event: MessageEvent) => {
       const { allEdges, startNodeId, endNodeId } = payload;
 
       const MAX_PATHS_TO_FIND = 100000;
-      const MAX_PATH_LENGTH = 30; // حداکثر عمق جستجو
+      const MAX_PATH_LENGTH = 30; 
 
       // +++++ گام ۱ تا ۵: Pruning (هرس کردن) (بدون تغییر) +++++
       const adj = new Map<string, { target: string; id: string }[]>();
