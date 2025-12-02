@@ -71,6 +71,10 @@ export default function NodesFilterCard({
     onSelectionChange(allIds);
   };
 
+  const handleDeselectAll = () => {
+    onSelectionChange(new Set());
+  };
+
   return (
     <div className={`flex flex-col gap-y-2 ${className || ""}`}>
       <Input
@@ -95,6 +99,15 @@ export default function NodesFilterCard({
             onPress={handleSelectAll}
           >
             انتخاب همه
+          </Button>
+          <Button
+            size="sm"
+            color="danger"
+            variant="flat"
+            fullWidth
+            onPress={handleDeselectAll}
+          >
+            لغو همه
           </Button>
         </div>
       )}

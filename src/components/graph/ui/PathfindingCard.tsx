@@ -7,7 +7,7 @@ import { Search } from "lucide-react";
 import displayIcon from "../../../assets/display-icon.svg";
 import { Chip } from "@heroui/chip";
 import type { Path, ExtendedPath } from "src/types/types";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Activity } from "react";
 
 interface PathfindingCardProps {
   startNodeId: string | null;
@@ -22,6 +22,7 @@ interface PathfindingCardProps {
     averageDuration: number;
   };
   handleNodeClick: (_event: React.MouseEvent, node: Node) => void;
+  resetPathfinding: () => void;
   className?: string;
 }
 
@@ -35,6 +36,7 @@ export const PathfindingCard = ({
   selectedIndex,
   calculatePathDuration,
   handleNodeClick,
+  resetPathfinding,
   className,
 }: PathfindingCardProps) => {
   const [processedPaths, setProcessedPaths] = useState<Path[]>([]);
@@ -123,7 +125,7 @@ export const PathfindingCard = ({
   const currentPaths = sortedPaths.slice(startIndex, endIndex);
 
   const getNodeLabel = (id: string) =>
-    searchedNodes.find((n) => n.id === id)?.data?.label || id;
+    allNodes.find((n) => n.id === id)?.data?.label || id;
 
   const formatDuration = (seconds: number) => {
     if (seconds < 60) return `${seconds.toFixed(1)} ثانیه`;
@@ -390,82 +392,88 @@ export const PathfindingCard = ({
           </div>
         )}
 
-        {activeTab === "Nodes" &&
-          (() => {
-            return (
-              <div className="flex flex-col gap-y-2">
-                <Input
-                  type="text"
-                  variant="faded"
-                  placeholder="جستجو بین راس ها"
-                  startContent={<Search size={24} />}
-                  onChange={(e) => {
-                    const value = e.target.value.toLowerCase();
+        <Activity mode={`${activeTab === "Nodes" ? "visible" : "hidden"}`}>
+          <div className="flex flex-col gap-y-2">
+            <Input
+              type="text"
+              variant="faded"
+              placeholder="جستجو بین راس ها"
+              startContent={<Search size={24} />}
+              onChange={(e) => {
+                const value = e.target.value.toLowerCase();
 
-                    if (!value.trim()) {
-                      setSearchedNodes(allNodes);
-                      return;
-                    }
-                    setSearchedNodes(
-                      allNodes.filter((node) =>
-                        node.data.label.toLowerCase().includes(value)
-                      )
-                    );
-                  }}
-                />
-                {searchedNodes.map((node, index) => {
-                  const isSelected =
-                    startNodeId === node.id || endNodeId === node.id;
+                if (!value.trim()) {
+                  setSearchedNodes(allNodes);
+                  return;
+                }
+                setSearchedNodes(
+                  allNodes.filter((node) =>
+                    node.data.label.toLowerCase().includes(value)
+                  )
+                );
+              }}
+            />
+            {searchedNodes.map((node, index) => {
+              const isSelected =
+                startNodeId === node.id || endNodeId === node.id;
 
-                  return (
-                    <Tooltip
-                      showArrow
-                      placement="left"
-                      content={
-                        startNodeId === node.id
-                          ? "انتخاب شده به عنوان راس شروع"
-                          : endNodeId === node.id
-                            ? "انتخاب شده به عنوان راس پایان"
-                            : !startNodeId
-                              ? "انتخاب کردن به عنوان راس شروع"
-                              : !endNodeId
-                                ? "انتخاب کردن به عنوان راس پایان"
-                                : "انتخاب دوباره راس شروع"
-                      }
-                    >
-                      <Button
-                        variant={isSelected ? "solid" : "flat"}
-                        color="primary"
-                        fullWidth
-                        onPress={(event) => {
-                          handleNodeClick(event, node);
-                        }}
-                        className={`${isSelected ? "scale-95" : ""} transition-all`}
+              return (
+                <Tooltip
+                  showArrow
+                  placement="left"
+                  content={
+                    startNodeId === node.id
+                      ? "انتخاب شده به عنوان راس شروع"
+                      : endNodeId === node.id
+                        ? "انتخاب شده به عنوان راس پایان"
+                        : !startNodeId
+                          ? "انتخاب کردن به عنوان راس شروع"
+                          : !endNodeId
+                            ? "انتخاب کردن به عنوان راس پایان"
+                            : "انتخاب دوباره راس شروع"
+                  }
+                >
+                  <Button
+                    variant={isSelected ? "solid" : "flat"}
+                    color="primary"
+                    fullWidth
+                    onPress={(event) => {
+                      handleNodeClick(event, node);
+                    }}
+                    className={`${isSelected ? "scale-95" : ""} transition-all`}
+                  >
+                    {node.data.label}
+                    {isSelected && (
+                      <Chip
+                        variant="solid"
+                        size="sm"
+                        color={
+                          startNodeId === node.id
+                            ? "success"
+                            : endNodeId === node.id && "danger"
+                        }
                       >
-                        {node.data.label}
-                        {isSelected && (
-                          <Chip
-                            variant="solid"
-                            size="sm"
-                            color={
-                              startNodeId === node.id
-                                ? "success"
-                                : endNodeId === node.id && "danger"
-                            }
-                          >
-                            {startNodeId === node.id
-                              ? "راس شروع"
-                              : endNodeId === node.id && "راس پایان"}
-                          </Chip>
-                        )}
-                      </Button>
-                    </Tooltip>
-                  );
-                })}
-              </div>
-            );
-          })()}
+                        {startNodeId === node.id
+                          ? "راس شروع"
+                          : endNodeId === node.id && "راس پایان"}
+                      </Chip>
+                    )}
+                  </Button>
+                </Tooltip>
+              );
+            })}
+          </div>
+        </Activity>
       </div>
+      <Button
+        fullWidth
+        color="danger"
+        variant="flat"
+        className="mt-3"
+        onPress={resetPathfinding}
+      >
+        لفو مسیریابی
+      </Button>
     </div>
   );
 };

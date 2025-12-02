@@ -24,12 +24,13 @@ if (started) {
 }
 
 const createWindow = () => {
-  const primaryDisplay = screen.getPrimaryDisplay()
-  const { width, height } = primaryDisplay.workAreaSize
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width, height } = primaryDisplay.workAreaSize;
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     width: width,
     height: height,
+    autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, "../preload/preload.cjs"),
       nodeIntegration: false, // Recommended for security

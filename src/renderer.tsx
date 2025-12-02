@@ -139,27 +139,25 @@ function App() {
           )}
           {step === 2 && dataFilePath && (
             <div
-              className="grid grid-cols-24 w-screen h-screen p-2 overflow-hidden"
+              className="grid grid-cols-24 w-full h-screen p-2 overflow-hidden"
               dir="rtl"
             >
               <SideBar
                 className="col-span-2"
                 activeTab={sideBarActiveTab}
                 onClickTab={(name) => {
-                  if(name === sideBarActiveTab){
+                  if (name === sideBarActiveTab && isSideCardShow) {
                     setIsSideCardShow(false);
-                    setSideBarActiveTab(null);
+                    // setSideBarActiveTab(null);
+                  } else {
+                    setSideBarActiveTab(name);
+                    setIsSideCardShow(true);
                   }
-                  else{
-                  setSideBarActiveTab(name);
-                  setIsSideCardShow(true);
-                  }
-
                 }}
               />
 
               <Activity mode={`${isSideCardShow ? "visible" : "hidden"}`}>
-                <Card className="col-span-6">
+                <Card className="col-span-6 h-[98%]">
                   <CardHeader className="flex gap-x-3">
                     {/* <Button
                       isIconOnly
@@ -180,30 +178,46 @@ function App() {
                     </p>
                   </CardHeader>
                   <CardBody className="text-right">
-                  <Activity mode={`${sideBarActiveTab === "Filter" ? "visible" : "hidden"}`}>
-                    <Filters
-                      submit={submit}
-                      isLoading={isLoadingRenderer}
-                    />
-                  </Activity>
-                    
-                    <PathfindingCard
-                      startNodeId={pathStartNodeId}
-                      endNodeId={pathEndNodeId}
-                      paths={foundPaths}
-                      allNodes={allNodes}
-                      onSelectPath={handleSelectPath}
-                      selectedIndex={selectedPathIndex}
-                      calculatePathDuration={calculatePathDuration}
-                      isLoading={isPathfindingLoading}
-                      handleNodeClick={handleNodeClick}
-                      className={`${(sideBarActiveTab !== "Routing" || !graphData) && "hidden"}`}
-                    />
+                    <Activity
+                      mode={`${sideBarActiveTab === "Filter" ? "visible" : "hidden"}`}
+                    >
+                      <Filters submit={submit} isLoading={isLoadingRenderer} />
+                    </Activity>
+
+                    <Activity
+                      mode={`${sideBarActiveTab === "Routing" && graphData ? "visible" : "hidden"}`}
+                    >
+                      <PathfindingCard
+                        startNodeId={pathStartNodeId}
+                        endNodeId={pathEndNodeId}
+                        paths={foundPaths}
+                        allNodes={allNodes}
+                        onSelectPath={handleSelectPath}
+                        selectedIndex={selectedPathIndex}
+                        calculatePathDuration={calculatePathDuration}
+                        isLoading={isPathfindingLoading}
+                        handleNodeClick={handleNodeClick}
+                        resetPathfinding={() => {
+                          resetPathfinding();
+                          setIsPathFinding(true);
+                        }}
+                      />
+                    </Activity>
                     <div
                       className={`w-full h-full flex justify-center items-center text-center text-3xl font-bold leading-15 ${sideBarActiveTab === "Routing" && !graphData ? "" : "hidden"}`}
                     >
                       لطفا ابتدا داده ی گراف را از تب فیلتر ها انتخاب کنید.
                     </div>
+                    <Activity
+                      mode={`${sideBarActiveTab === "Nodes" ? "visible" : "hidden"}`}
+                    >
+                      <NodesFilterCard
+                        Nodes={allNodes}
+                        selectedNodeIds={selectedNodeIds}
+                        onSelectionChange={setSelectedNodeIds}
+                        onFilteredNodesChange={setFilteredNodes}
+                      />
+                    </Activity>
                     <SettingsCard
                       ColorPaletteProps={{
                         options: paletteOptions,
@@ -213,13 +227,6 @@ function App() {
                         },
                       }}
                       className={`${sideBarActiveTab !== "Settings" && "hidden"}`}
-                    />
-                    <NodesFilterCard
-                      Nodes={allNodes}
-                      selectedNodeIds={selectedNodeIds}
-                      onSelectionChange={setSelectedNodeIds}
-                      onFilteredNodesChange={setFilteredNodes}
-                      className={`${sideBarActiveTab !== "Nodes" && "hidden"}`}
                     />
                   </CardBody>
                 </Card>
@@ -234,7 +241,6 @@ function App() {
                 {/* اگر فیلترها اعمال شده ولی هنوز گره‌ای انتخاب نشده، متن مناسب نمایش داده شود */}
                 {!isLoadingRenderer &&
                   graphData &&
-                  filtersApplied &&
                   selectedNodeIds.size === 0 && (
                     <div className="flex justify-center items-center h-full">
                       <h2 className="text-xl font-bold text-center leading-15">
@@ -244,7 +250,7 @@ function App() {
                     </div>
                   )}
 
-                {!isLoadingRenderer && graphData && !filtersApplied && (
+                {!isLoadingRenderer && graphData && selectedNodeIds.size > 0 && (
                   <Graph
                     filteredNodeIds={selectedNodeIds}
                     className="w-full h-full"
