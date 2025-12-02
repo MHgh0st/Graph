@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, screen } from "electron";
 import { join } from "path";
 import started from "electron-squirrel-startup";
 import { spawn } from "child_process";
@@ -24,10 +24,12 @@ if (started) {
 }
 
 const createWindow = () => {
+  const primaryDisplay = screen.getPrimaryDisplay()
+  const { width, height } = primaryDisplay.workAreaSize
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: width,
+    height: height,
     webPreferences: {
       preload: join(__dirname, "../preload/preload.cjs"),
       nodeIntegration: false, // Recommended for security

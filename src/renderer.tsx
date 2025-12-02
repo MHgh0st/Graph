@@ -24,6 +24,7 @@ import { PathfindingCard } from "./components/graph/ui/PathfindingCard";
 import SettingsCard from "./components/SettingsCard";
 import NodesFilterCard from "./components/NodesFilterCard";
 import { paletteOptions } from "./constants/colorPalettes";
+import { Activity } from "react";
 function App() {
   const [dataFilePath, setDataFilePath] = useState<string | null>(null);
   const [isLoadingRenderer, setIsLoadingRenderer] = useState<boolean>(false);
@@ -145,28 +146,32 @@ function App() {
                 className="col-span-2"
                 activeTab={sideBarActiveTab}
                 onClickTab={(name) => {
+                  if(name === sideBarActiveTab){
+                    setIsSideCardShow(false);
+                    setSideBarActiveTab(null);
+                  }
+                  else{
                   setSideBarActiveTab(name);
                   setIsSideCardShow(true);
+                  }
+
                 }}
               />
 
-              {isSideCardShow && (
+              <Activity mode={`${isSideCardShow ? "visible" : "hidden"}`}>
                 <Card className="col-span-6">
                   <CardHeader className="flex gap-x-3">
-                    <Button
+                    {/* <Button
                       isIconOnly
                       size="sm"
                       color="danger"
                       variant="flat"
                       onPress={() => {
                         setIsSideCardShow(false);
-                        // setSideBarActiveTab(null);
-                        // setIsPathFinding(false);
-                        // resetPathfinding();
                       }}
                     >
                       <X size={20} />
-                    </Button>
+                    </Button> */}
                     <p className="text-2xl font-bold">
                       {sideBarActiveTab === "Filter" && "فیلتر ها"}
                       {sideBarActiveTab === "Routing" && "مسیر یابی بین دو یال"}
@@ -175,11 +180,13 @@ function App() {
                     </p>
                   </CardHeader>
                   <CardBody className="text-right">
+                  <Activity mode={`${sideBarActiveTab === "Filter" ? "visible" : "hidden"}`}>
                     <Filters
                       submit={submit}
                       isLoading={isLoadingRenderer}
-                      className={`${sideBarActiveTab !== "Filter" && "hidden"}`}
                     />
+                  </Activity>
+                    
                     <PathfindingCard
                       startNodeId={pathStartNodeId}
                       endNodeId={pathEndNodeId}
@@ -216,7 +223,7 @@ function App() {
                     />
                   </CardBody>
                 </Card>
-              )}
+              </Activity>
               <main
                 className={`${isSideCardShow ? "col-span-16" : "col-span-22"} flex items-center justify-center`}
               >
