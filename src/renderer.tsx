@@ -54,7 +54,7 @@ function App() {
     loadingMessage,
     setLayoutedNodes,
     setLayoutedEdges,
-  } = useGraphLayout(graphData, selectedColorPalette, startEndNodes);
+  } = useGraphLayout(graphData, selectedColorPalette, startEndNodes, selectedNodeIds);
   const {
     activeTooltipEdgeId,
     cardContentFlag,

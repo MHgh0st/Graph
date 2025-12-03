@@ -28,7 +28,8 @@ export const useGraphLayout = (
   startEndNodes: {
     start: string[];
     end: string[];
-  }
+  },
+  filteredNodeIds: Set<string> = new Set()
 ) => {
   const [allNodes, setAllNodes] = useState<Node[]>([]);
   const [allEdges, setAllEdges] = useState<Edge[]>([]);
@@ -88,14 +89,26 @@ export const useGraphLayout = (
     setIsLoading(true);
     setLoadingMessage("در حال محاسبه چیدمان گراف...");
 
+    // فیلتر کردن گره‌ها و یال‌ها اگر filteredNodeIds خالی نباشد
+    let nodesToLayout = allNodes;
+    let edgesToLayout = allEdges;
+
+    if (filteredNodeIds.size > 0) {
+      nodesToLayout = allNodes.filter((node) => filteredNodeIds.has(node.id));
+      edgesToLayout = allEdges.filter(
+        (edge) =>
+          filteredNodeIds.has(edge.source) && filteredNodeIds.has(edge.target)
+      );
+    }
+
     const nodeHeight = 50;
-    const elkNodes = allNodes.map((node: Node) => ({
+    const elkNodes = nodesToLayout.map((node: Node) => ({
       id: node.id,
       width: (node.style?.width as number) || 250,
       height: nodeHeight,
     }));
 
-    const elkEdges = allEdges.map((edge: Edge) => ({
+    const elkEdges = edgesToLayout.map((edge: Edge) => ({
       id: edge.id,
       sources: [edge.source],
       targets: [edge.target],
@@ -111,7 +124,7 @@ export const useGraphLayout = (
     elk
       .layout(graphToLayout)
       .then((layoutedGraph: any) => {
-        const newLayoutedNodes = allNodes.map((node) => {
+        const newLayoutedNodes = nodesToLayout.map((node) => {
           const elkNode = layoutedGraph.children.find(
             (n: any) => n.id === node.id
           );
@@ -123,8 +136,8 @@ export const useGraphLayout = (
 
         let minWeight = Infinity;
         let maxWeight = -Infinity;
-        allEdges.forEach((edge) => {
-          const weight = edge.data?.Weight_Value || 0;
+        edgesToLayout.forEach((edge) => {
+          const weight = (edge.data?.Weight_Value as number) || 0;
           if (weight < minWeight) minWeight = weight;
           if (weight > maxWeight) maxWeight = weight;
         });
@@ -139,8 +152,8 @@ export const useGraphLayout = (
           colorPalettes[colorPaletteKey] || colorPalettes.default;
 
         // ۳. مپ کردن یال‌ها و اعمال رنگ
-        const coloredEdges = allEdges.map((edge) => {
-          const weight = edge.data?.Weight_Value || 0;
+        const coloredEdges = edgesToLayout.map((edge) => {
+          const weight = (edge.data?.Weight_Value as number) || 0;
           const color = getEdgeColor(weight, minWeight, maxWeight);
 
           return {
@@ -164,7 +177,7 @@ export const useGraphLayout = (
         console.error("Component: ELK layout failed:", e);
         setIsLoading(false);
       });
-  }, [allNodes, allEdges, colorPaletteKey, startEndNodes]);
+  }, [allNodes, allEdges, colorPaletteKey, startEndNodes, filteredNodeIds]);
 
   return {
     allNodes,
