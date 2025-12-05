@@ -128,9 +128,7 @@ export const PathfindingCard = ({
     allNodes.find((n) => n.id === id)?.data?.label || id;
 
   const formatDuration = (seconds: number) => {
-    if (seconds < 60) return `${seconds.toFixed(1)} ثانیه`;
-    if (seconds < 3600) return `${(seconds / 60).toFixed(1)} دقیقه`;
-    return `${(seconds / 3600).toFixed(1)} ساعت`;
+    return `${(seconds / 3600 / 24).toFixed(2)} روز`;
   };
 
   const Tabs: {

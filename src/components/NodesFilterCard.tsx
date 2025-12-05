@@ -68,7 +68,7 @@ export default function NodesFilterCard({
 
   const handleSelectAll = () => {
     const allIds = new Set(searchedNodes.map((node) => node.id));
-    onSelectionChange(allIds);
+    onSelectionChange(new Set([...selectedNodeIds, ...allIds]));
   };
 
   const handleDeselectAll = () => {
