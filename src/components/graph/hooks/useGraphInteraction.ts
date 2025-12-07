@@ -14,7 +14,8 @@ export const useGraphInteraction = (
   selectedPathEdges: Set<string>,
   setSelectedPathEdges: React.Dispatch<React.SetStateAction<Set<string>>>,
   selectedPathIndex: number | null,
-  setSelectedPathIndex: React.Dispatch<React.SetStateAction<number | null>>
+  setSelectedPathIndex: React.Dispatch<React.SetStateAction<number | null>>,
+  selectedNodeIds: Set<string>
 ) => {
   const [activeTooltipEdgeId, setActiveTooltipEdgeId] = useState<string | null>(
     null
@@ -258,6 +259,14 @@ export const useGraphInteraction = (
             // برش مسیر (Slice)
             const pathNodes = variant.Variant_Path.slice(startIdx, endIdx + 1);
 
+            if (selectedNodeIds && selectedNodeIds.size > 0) {
+              const isPathInSubgraph = pathNodes.every((nodeId) =>
+                selectedNodeIds.has(nodeId)
+              );
+              // اگر حتی یک گره از مسیر در فیلتر کاربر نباشد، این مسیر را نادیده بگیر
+              if (!isPathInSubgraph) return;
+            }
+
             // پیدا کردن ID یال‌ها برای هایلایت
             const pathEdges: string[] = [];
             for (let i = 0; i < pathNodes.length - 1; i++) {
@@ -317,6 +326,7 @@ export const useGraphInteraction = (
       setLayoutedNodes,
       setSelectedPathNodes, // Added dependency
       setSelectedPathEdges, // Added dependency
+      selectedNodeIds,
     ]
   );
 

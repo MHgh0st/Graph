@@ -2,8 +2,6 @@ import ReactDOM from "react-dom/client";
 import "./index.css";
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardBody } from "@heroui/card";
-import { Button } from "@heroui/button";
-import { X } from "lucide-react";
 import { HeroUIProvider } from "@heroui/system";
 import { ReactFlowProvider, Node } from "@xyflow/react";
 import ProcessData from "./utils/ProcessData";
@@ -53,6 +51,10 @@ function App() {
   const [selectedPathIndex, setSelectedPathIndex] = useState<number | null>(
     null
   );
+
+  useEffect(()=>{
+    console.log('variants: ',variants)
+  },[variants])
 
   // --- Logic for filtering layout ---
   // If a path is selected (index !== null), we filter ONLY that path's nodes/edges.
@@ -105,7 +107,8 @@ function App() {
     selectedPathEdges,
     setSelectedPathEdges,
     selectedPathIndex,
-    setSelectedPathIndex
+    setSelectedPathIndex,
+    selectedNodeIds,
   );
   const submit = async (filters?: FilterTypes) => {
     switch (step) {
@@ -213,6 +216,7 @@ function App() {
                         endNodeId={pathEndNodeId}
                         paths={foundPaths}
                         allNodes={allNodes}
+                        selectedNodeIds={selectedNodeIds}
                         onSelectPath={handleSelectPath}
                         selectedIndex={selectedPathIndex}
                         calculatePathDuration={calculatePathDuration}

@@ -7,13 +7,14 @@ import { Search } from "lucide-react";
 import displayIcon from "../../../assets/display-icon.svg";
 import { Chip } from "@heroui/chip";
 import type { Path, ExtendedPath } from "src/types/types";
-import { useState, useEffect, Activity } from "react";
+import { useState, useEffect, Activity, useMemo } from "react";
 
 interface PathfindingCardProps {
   startNodeId: string | null;
   endNodeId: string | null;
   paths: Path[];
   allNodes: Node[];
+  selectedNodeIds: Set<string>;
   isLoading: boolean;
   onSelectPath: (path: Path, index: number) => void;
   selectedIndex: number | null;
@@ -31,6 +32,7 @@ export const PathfindingCard = ({
   endNodeId,
   paths,
   allNodes,
+  selectedNodeIds,
   isLoading,
   onSelectPath,
   selectedIndex,
@@ -43,11 +45,19 @@ export const PathfindingCard = ({
   const [sortedPaths, setSortedPaths] = useState<Path[]>([]);
   const [isSorted, setIsSorted] = useState(false);
   const [isSorting, setIsSorting] = useState(false);
-  const [searchedNodes, setSearchedNodes] = useState<Node[]>(allNodes);
+  const [searchedNodes, setSearchedNodes] = useState<Node[]>([]);
+
+  // --- تغییر ۱: محاسبه لیست پایه (گره‌های مجاز) ---
+  // این لیست فقط شامل گره‌هایی است که در selectedNodeIds وجود دارند
+  const baseNodes = useMemo(() => {
+    if (selectedNodeIds && selectedNodeIds.size > 0) {
+      return allNodes.filter((node) => selectedNodeIds.has(node.id));
+    }
+    return allNodes;
+  }, [allNodes, selectedNodeIds]);
 
   // پردازش مسیرها بدون مرتب‌سازی خودکار
   useEffect(() => {
-    // اگر مسیری وجود ندارد، همه‌چیز را ریست کن
     if (paths.length === 0) {
       setProcessedPaths([]);
       setSortedPaths([]);
@@ -56,34 +66,28 @@ export const PathfindingCard = ({
       return;
     }
 
-    // لودر پردازش را نشان بده
     setIsSorting(true);
 
     const processed: Path[] = [];
     let index = 0;
-    // اندازه هر "تکه" برای پردازش
     const CHUNK_SIZE = 5000;
 
     function processChunk() {
       try {
         const limit = Math.min(index + CHUNK_SIZE, paths.length);
 
-        // پردازش تکه‌ای از داده‌ها
         for (let i = index; i < limit; i++) {
           const path = paths[i];
           const { totalDuration, averageDuration } =
             calculatePathDuration(path);
-          // ذخیره مقادیر محاسبه‌شده در خود آبجکت مسیر
           processed.push({ ...path, totalDuration, averageDuration });
         }
 
         index += CHUNK_SIZE;
 
         if (index < paths.length) {
-          // اگر هنوز مسیری باقی مانده، به UI اجازه نفس کشیدن بده
           setTimeout(processChunk, 0);
         } else {
-          // تمام مسیرها پردازش شدند، لیست بدون مرتب‌سازی را ذخیره کن
           setProcessedPaths(processed);
           setSortedPaths(processed);
           setIsSorting(false);
@@ -94,20 +98,18 @@ export const PathfindingCard = ({
       }
     }
 
-    // شروع پردازش اولین تکه
     processChunk();
   }, [paths, calculatePathDuration]);
 
+  // --- تغییر ۲: به‌روزرسانی لیست نمایش داده شده بر اساس baseNodes ---
   useEffect(() => {
-    setSearchedNodes(allNodes);
-  }, [allNodes]);
+    setSearchedNodes(baseNodes);
+  }, [baseNodes]);
 
-  // تابع مرتب‌سازی
   const handleSortPaths = () => {
-    if (isSorted) return; // اگر قبلاً مرتب شده، کاری نکن
+    if (isSorted) return;
 
     setIsSorting(true);
-    // مرتب‌سازی بر اساس میانگین زمان (از کم به زیاد)
     const sorted = [...processedPaths].sort(
       (a, b) => (a.averageDuration ?? 0) - (b.averageDuration ?? 0)
     );
@@ -147,7 +149,6 @@ export const PathfindingCard = ({
 
   return (
     <div className={`flex flex-col h-full ${className}`}>
-      {/* بخش‌های مربوط به انتخاب نود شروع و پایان بدون تغییر */}
       <div className="w-full p-2 flex-shrink-0">
         {!startNodeId && <p>لطفاً نود شروع را روی گراف انتخاب کنید...</p>}
         {startNodeId && !endNodeId && (
@@ -167,7 +168,6 @@ export const PathfindingCard = ({
           </p>
         )}
 
-        {/* لودینگ اصلی (برای پیدا کردن مسیرها) */}
         {isLoading && (
           <div>
             <p className="text-xl font-bold mb-2 ">
@@ -179,7 +179,6 @@ export const PathfindingCard = ({
         )}
       </div>
 
-      {/* تب ها */}
       <div className="w-full flex gap-x-2 mt-3 flex-shrink-0">
         {Tabs.map((tab) => {
           const isActive = activeTab === tab.name;
@@ -195,10 +194,8 @@ export const PathfindingCard = ({
         })}
       </div>
       <div className=" flex-1 overflow-y-auto min-h-0 px-2 mt-4">
-        {/* تب مسیر ها: */}
         {activeTab === "Paths" && startNodeId && endNodeId && !isLoading && (
           <div>
-            {/* نمایش لودر پردازش */}
             {isSorting && (
               <div className="text-center p-4">
                 <p className="font-bold">
@@ -211,7 +208,6 @@ export const PathfindingCard = ({
               </div>
             )}
 
-            {/* نمایش لیست (فقط زمانی که پردازش تمام شده) */}
             {!isSorting && !isLoading && (
               <div>
                 {paths.length === 0 ? (
@@ -220,7 +216,6 @@ export const PathfindingCard = ({
                   <div>
                     <div className="flex flex-col justify-between items-center mb-4">
                       <div className="flex gap-2">
-                        {/* دکمه مرتب‌سازی */}
                         <Button
                           size="sm"
                           variant="flat"
@@ -230,7 +225,6 @@ export const PathfindingCard = ({
                         >
                           {isSorted ? "مرتب‌شده" : "مرتب‌سازی"}
                         </Button>
-                        {/* دکمه‌های صفحه‌بندی */}
                         <Button
                           size="sm"
                           variant="flat"
@@ -263,24 +257,16 @@ export const PathfindingCard = ({
                     <Accordion className="p-0" variant="splitted" isCompact>
                       {currentPaths.map((path, index) => {
                         const actualIndex = startIndex + index;
-
                         const extPath = path as ExtendedPath;
-
                         const nodesToShow =
                           extPath._fullPathNodes || path.nodes;
                         const startIdx = extPath._startIndex ?? 0;
                         const endIdx =
                           extPath._endIndex ?? path.nodes.length - 1;
 
-                        const duration = {
-                          totalDuration: path.totalDuration ?? 0,
-                          averageDuration: path.averageDuration ?? 0,
-                        };
-
                         return (
                           <AccordionItem
                             key={actualIndex}
-                            // title={`مسیر ${actualIndex + 1} ( دارای ${path.nodes.length - 2} راس و ${path.edges.length} یال )`}
                             title={`مسیر ${actualIndex + 1} (تعداد: ${extPath._frequency || "?"})`}
                             startContent={
                               <div
@@ -324,7 +310,6 @@ export const PathfindingCard = ({
 
                             <div className="flex flex-col gap-1 p-2 ml-2">
                               {nodesToShow.map((id, i) => {
-                                // تشخیص وضعیت گره در مسیر
                                 const isStart = i === startIdx;
                                 const isEnd = i === endIdx;
                                 const isInPath = i > startIdx && i < endIdx;
@@ -338,7 +323,6 @@ export const PathfindingCard = ({
                                     <span className="w-6 text-xs text-gray-500">
                                       {i + 1}.
                                     </span>
-
                                     <span
                                       className={`
                                       ${isStart ? "font-bold text-success-600" : ""}
@@ -349,7 +333,6 @@ export const PathfindingCard = ({
                                     >
                                       {getNodeLabel(id)}
                                     </span>
-
                                     {isStart && (
                                       <Chip
                                         size="sm"
@@ -391,7 +374,7 @@ export const PathfindingCard = ({
         )}
 
         <Activity mode={`${activeTab === "Nodes" ? "visible" : "hidden"}`}>
-          <div className="flex flex-col gap-y-2">
+          {selectedNodeIds.size > 0 ? (<div className="flex flex-col gap-y-2">
             <Input
               type="text"
               variant="faded"
@@ -400,13 +383,14 @@ export const PathfindingCard = ({
               onChange={(e) => {
                 const value = e.target.value.toLowerCase();
 
+                // --- تغییر ۳: استفاده از baseNodes برای جستجو ---
                 if (!value.trim()) {
-                  setSearchedNodes(allNodes);
+                  setSearchedNodes(baseNodes);
                   return;
                 }
                 setSearchedNodes(
-                  allNodes.filter((node) =>
-                    node.data.label.toLowerCase().includes(value)
+                  baseNodes.filter((node) =>
+                    (node.data.label as string).toLowerCase().includes(value)
                   )
                 );
               }}
@@ -417,6 +401,7 @@ export const PathfindingCard = ({
 
               return (
                 <Tooltip
+                  key={node.id}
                   showArrow
                   placement="left"
                   content={
@@ -460,7 +445,11 @@ export const PathfindingCard = ({
                 </Tooltip>
               );
             })}
-          </div>
+          </div>) : (
+            <div className="flex justify-center items-center h-full">
+              لطفا ابتدا گره ها را در تب گره ها انتخاب کنید.
+            </div>
+          )}
         </Activity>
       </div>
       <Button
