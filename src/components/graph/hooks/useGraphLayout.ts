@@ -29,7 +29,8 @@ export const useGraphLayout = (
     start: string[];
     end: string[];
   },
-  filteredNodeIds: Set<string> = new Set()
+  filteredNodeIds: Set<string> = new Set(),
+  filteredEdgeIds: Set<string> | null = null
 ) => {
   const [allNodes, setAllNodes] = useState<Node[]>([]);
   const [allEdges, setAllEdges] = useState<Edge[]>([]);
@@ -99,6 +100,15 @@ export const useGraphLayout = (
         (edge) =>
           filteredNodeIds.has(edge.source) && filteredNodeIds.has(edge.target)
       );
+    }
+    
+    // فیلتر کردن خاص برای یال‌ها (اگر ست شده باشد)
+    if (filteredEdgeIds && filteredEdgeIds.size > 0) {
+       edgesToLayout = edgesToLayout.filter(edge => filteredEdgeIds.has(edge.id));
+       
+       // در حالت نمایش مسیر، فقط گره‌های متصل به این یال‌ها (یا گره‌های شروع/پایان) را نگه میداریم
+       // اما چون filteredNodeIds هم از بالا پاس داده می‌شود، فرض بر این است که آن درست تنظیم شده.
+       // پس فقط روی یال‌ها فیلتر اعمال می‌کنیم.
     }
 
     const nodeHeight = 50;
@@ -177,7 +187,7 @@ export const useGraphLayout = (
         console.error("Component: ELK layout failed:", e);
         setIsLoading(false);
       });
-  }, [allNodes, allEdges, colorPaletteKey, startEndNodes, filteredNodeIds]);
+  }, [allNodes, allEdges, colorPaletteKey, startEndNodes, filteredNodeIds, filteredEdgeIds]);
 
   return {
     allNodes,

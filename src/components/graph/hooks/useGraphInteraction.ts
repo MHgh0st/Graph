@@ -7,7 +7,14 @@ export const useGraphInteraction = (
   allEdges: Edge[],
   variants: Variant[],
   setLayoutedNodes: React.Dispatch<React.SetStateAction<Node[]>>,
-  setLayoutedEdges: React.Dispatch<React.SetStateAction<Edge[]>>
+  setLayoutedEdges: React.Dispatch<React.SetStateAction<Edge[]>>,
+  // New props for state lifted up
+  selectedPathNodes: Set<string>,
+  setSelectedPathNodes: React.Dispatch<React.SetStateAction<Set<string>>>,
+  selectedPathEdges: Set<string>,
+  setSelectedPathEdges: React.Dispatch<React.SetStateAction<Set<string>>>,
+  selectedPathIndex: number | null,
+  setSelectedPathIndex: React.Dispatch<React.SetStateAction<number | null>>
 ) => {
   const [activeTooltipEdgeId, setActiveTooltipEdgeId] = useState<string | null>(
     null
@@ -28,15 +35,6 @@ export const useGraphInteraction = (
   const [pathStartNodeId, setPathStartNodeId] = useState<string | null>(null);
   const [pathEndNodeId, setPathEndNodeId] = useState<string | null>(null);
   const [foundPaths, setFoundPaths] = useState<ExtendedPath[]>([]);
-  const [selectedPathNodes, setSelectedPathNodes] = useState<Set<string>>(
-    new Set()
-  );
-  const [selectedPathEdges, setSelectedPathEdges] = useState<Set<string>>(
-    new Set()
-  );
-  const [selectedPathIndex, setSelectedPathIndex] = useState<number | null>(
-    null
-  );
 
   const outgoingEdgesMap = useMemo(() => {
     const map = new Map<string, Edge[]>();
@@ -317,6 +315,8 @@ export const useGraphInteraction = (
       edgeLookupMap,
       setLayoutedEdges,
       setLayoutedNodes,
+      setSelectedPathNodes, // Added dependency
+      setSelectedPathEdges, // Added dependency
     ]
   );
 
@@ -366,9 +366,9 @@ export const useGraphInteraction = (
     pathStartNodeId,
     pathEndNodeId,
     foundPaths,
-    selectedPathNodes,
-    selectedPathEdges,
-    selectedPathIndex,
+    // selectedPathNodes, // Removed from return as it is passed in
+    // selectedPathEdges, // Removed from return as it is passed in
+    // selectedPathIndex, // Removed from return as it is passed in
     isPathfindingLoading: false, // همیشه false چون محاسبات آنی است
     handleEdgeSelect,
     handleSelectPath,

@@ -43,6 +43,24 @@ function App() {
   const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(
     new Set()
   );
+  // --- Lifted State for Pathfinding ---
+  const [selectedPathNodes, setSelectedPathNodes] = useState<Set<string>>(
+    new Set()
+  );
+  const [selectedPathEdges, setSelectedPathEdges] = useState<Set<string>>(
+    new Set()
+  );
+  const [selectedPathIndex, setSelectedPathIndex] = useState<number | null>(
+    null
+  );
+
+  // --- Logic for filtering layout ---
+  // If a path is selected (index !== null), we filter ONLY that path's nodes/edges.
+  // Otherwise, we use the standard selectedNodeIds filter.
+  const layoutFilters = {
+    nodes: selectedPathIndex !== null ? selectedPathNodes : selectedNodeIds,
+    edges: selectedPathIndex !== null ? selectedPathEdges : null,
+  };
   const [filteredNodes, setFilteredNodes] = useState<Node[]>([]);
   const [filtersApplied, setFiltersApplied] = useState<boolean>(false);
 
@@ -54,7 +72,7 @@ function App() {
     loadingMessage,
     setLayoutedNodes,
     setLayoutedEdges,
-  } = useGraphLayout(graphData, selectedColorPalette, startEndNodes, selectedNodeIds);
+  } = useGraphLayout(graphData, selectedColorPalette, startEndNodes, layoutFilters.nodes, layoutFilters.edges);
   const {
     activeTooltipEdgeId,
     cardContentFlag,
@@ -65,9 +83,6 @@ function App() {
     pathStartNodeId,
     pathEndNodeId,
     foundPaths,
-    selectedPathNodes,
-    selectedPathEdges,
-    selectedPathIndex,
     isPathfindingLoading,
     isPathFinding,
     handleEdgeSelect,
@@ -84,7 +99,13 @@ function App() {
     layoutedEdges,
     variants,
     setLayoutedNodes,
-    setLayoutedEdges
+    setLayoutedEdges,
+    selectedPathNodes,
+    setSelectedPathNodes,
+    selectedPathEdges,
+    setSelectedPathEdges,
+    selectedPathIndex,
+    setSelectedPathIndex
   );
   const submit = async (filters?: FilterTypes) => {
     switch (step) {
@@ -272,16 +293,16 @@ function App() {
                         edgeTooltipTitle,
                         edgeTooltipData,
                         pathStartNodeId,
-                        pathEndNodeId,
-                        foundPaths,
-                        selectedPathNodes,
-                        selectedPathEdges,
-                        selectedPathIndex,
-                        isPathfindingLoading,
-                        isPathFinding,
-                        handleEdgeSelect,
-                        handleSelectPath,
-                        handleNodeClick,
+    pathEndNodeId,
+    foundPaths,
+    isPathfindingLoading,
+    isPathFinding,
+    handleEdgeSelect,
+    handleSelectPath, 
+    handleNodeClick,
+    selectedPathNodes,
+    selectedPathEdges,
+    selectedPathIndex,
                         closeNodeTooltip,
                         setIsPathFinding,
                         setCardContentFlag,

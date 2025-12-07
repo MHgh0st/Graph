@@ -9,7 +9,7 @@ declare global {
   interface Window {
     electronAPI: {
       processData: (
-        formatType: "csv" | "pkl",
+        formatType: "csv" | "pkl" | "parquet",
         inputPath: string,
         filters: FilterTypes
       ) => Promise<any>;
@@ -51,7 +51,7 @@ const createWindow = () => {
 };
 
 async function runPythonScript(
-  formatType: "csv" | "pkl",
+  formatType: "csv" | "pkl" | "parquet",
   inputPath: string,
   filters: FilterTypes
 ) {
@@ -191,7 +191,7 @@ ipcMain.handle("open-file-dialog", async () => {
   const result = await dialog.showOpenDialog({
     properties: ["openFile"],
     filters: [
-      { name: "Data Files", extensions: ["csv", "pkl", "pickle"] },
+      { name: "Data Files", extensions: ["csv", "pkl", "pickle", "parquet"] },
       { name: "All Files", extensions: ["*"] },
     ],
   });

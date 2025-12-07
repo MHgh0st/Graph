@@ -4,7 +4,7 @@ import { type FilterTypes } from "./types/types";
 // the ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld("electronAPI", {
   processData: (
-    formatType: "csv" | "pkl",
+    formatType: "csv" | "pkl" | "parquet",
     inputPath: string,
     filters: FilterTypes
   ) => ipcRenderer.invoke("process-data", formatType, inputPath, filters),

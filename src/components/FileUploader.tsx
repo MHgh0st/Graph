@@ -45,7 +45,13 @@ export default function FileUploader({
     setOutputMessage(null);
     const fileExtension = filePath.split(".").pop().toLowerCase();
     const formatType =
-      fileExtension === "csv" ? "csv" : fileExtension === "pkl" ? "pkl" : "";
+      fileExtension === "csv"
+        ? "csv"
+        : fileExtension === "pkl"
+          ? "pkl"
+          : fileExtension === "parquet"
+            ? "parquet"
+            : "";
     try {
       if (!formatType) {
         throw new Error("فرمت فایل نامعتبر است.");

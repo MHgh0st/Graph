@@ -6,9 +6,19 @@ export default async function ProcessData(
 ) {
   const fileExtension = filePath.split(".").pop().toLowerCase();
   const formatType =
-    fileExtension === "csv" ? "csv" : fileExtension === "pkl" ? "pkl" : "";
+    fileExtension === "csv"
+      ? "csv"
+      : fileExtension === "pkl"
+        ? "pkl"
+        : fileExtension === "parquet"
+          ? "parquet"
+          : "";
   try {
-    if (formatType === "csv" || formatType === "pkl") {
+    if (
+      formatType === "csv" ||
+      formatType === "pkl" ||
+      formatType === "parquet"
+    ) {
       const jsonData = window.electronAPI.processData(
         formatType,
         filePath,
