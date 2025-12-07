@@ -4,7 +4,7 @@ import { Accordion, AccordionItem } from "@heroui/accordion";
 import { Tooltip } from "@heroui/tooltip";
 import { Input } from "@heroui/input";
 import { Search } from "lucide-react";
-import displayIcon from "../../../assets/display-icon.svg";
+import { Monitor } from "lucide-react";
 import { Chip } from "@heroui/chip";
 import type { Path, ExtendedPath } from "src/types/types";
 import { useState, useEffect, Activity, useMemo } from "react";
@@ -290,7 +290,7 @@ export const PathfindingCard = ({
                                       onSelectPath(path, actualIndex)
                                     }
                                   >
-                                    <img src={displayIcon} alt="" width={20} />
+                                    <Monitor size={16}/>
                                   </Button>
                                 </Tooltip>
                               </div>

@@ -180,6 +180,7 @@ export const useGraphInteraction = (
             targetLabel:
               (targetNode?.data?.label as string) || (edge.target as string),
             weight: (edge.label as string) || "N/A",
+            edgeId: edge.id,
           };
         });
 

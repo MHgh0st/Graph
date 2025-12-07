@@ -33,7 +33,7 @@ interface UtilsProps {
     isNodeCardVisible: boolean;
     isEdgeCardVisible: boolean;
     nodeTooltipTitle: string | null;
-    nodeTooltipData: Array<{ targetLabel: string; weight: string | number }>;
+    nodeTooltipData: Array<{ edgeId: string; targetLabel: string; weight: string | number }>;
     edgeTooltipTitle: string | null;
     edgeTooltipData: Array<{ label: string; value: string | number }>;
     pathStartNodeId: string | null;
@@ -265,11 +265,12 @@ export default function Graph({
                 nodeTooltipTitle={nodeTooltipTitle}
                 nodeTooltipData={nodeTooltipData}
                 onClose={closeNodeTooltip}
+                onEdgeSelect={handleEdgeSelect}
               />
           </Card>
           )}
           {isEdgeCardVisible && (
-          <Card fullWidth className="absolute z-100 bottom-4">
+          <Card className="absolute z-1 bottom-4 w-[98%] right-3">
               <EdgeTooltip
                 edgeTooltipData={edgeTooltipData}
                 edgeTooltipTitle={edgeTooltipTitle}

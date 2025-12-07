@@ -29,39 +29,20 @@ export default function EdgeTooltip({
         {edgeTooltipTitle || "جزئیات یال"}
       </CardHeader>
       <CardBody>
-        {edgeTooltipData.map((item, index) => (
-          <li key={index} className="flex justify-between text-xs">
+        <div className="flex justify-between px-4">
+          {edgeTooltipData.map((item, index) => (
+          // <li key={index} className="flex justify-between text-xs">
+          //   <span className="text-gray-600">{item.label}:</span>
+          //   <span className="font-medium">{item.value}</span>
+          // </li>
+          <div className="flex flex-col gap-y-1 items-center text-sm">
             <span className="text-gray-600">{item.label}:</span>
             <span className="font-medium">{item.value}</span>
-          </li>
+          </div>
         ))}
+        </div>
       </CardBody>
     </>
-    // <div className="flex flex-col gap-y-2 w-[250px]">
-    //   <div className="flex justify-between items-center">
-    //     <h4 className="font-bold text-sm">
-    //       {edgeTooltipTitle || "جزئیات یال"}
-    //     </h4>
-    //     <button
-    //       onClick={onClose}
-    //       className="p-1 rounded-full hover:bg-gray-200"
-    //     >
-    //       <X size={16} />
-    //     </button>
-    //   </div>
-    //   <ul className="flex flex-col gap-y-1 max-h-[150px] overflow-y-auto">
-    //     {edgeTooltipData.map((item, index) => (
-    //       <li key={index} className="flex justify-between text-xs">
-    //         <span className="text-gray-600">{item.label}:</span>
-    //         <span className="font-medium">{item.value}</span>
-    //       </li>
-    //     ))}
-    //     {edgeTooltipData.length === 0 && (
-    //       <li className="text-xs text-gray-500">
-    //         اطلاعاتی برای نمایش وجود ندارد.
-    //       </li>
-    //     )}
-    //   </ul>
-    // </div>
+  
   );
 }
