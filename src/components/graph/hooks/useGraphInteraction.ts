@@ -20,9 +20,13 @@ export const useGraphInteraction = (
   const [activeTooltipEdgeId, setActiveTooltipEdgeId] = useState<string | null>(
     null
   );
-  const [cardContentFlag, setCardContentFlag] = useState<
-    "nodeTooltip" | "edgeTooltip" | null
-  >(null);
+  
+  const [isNodeCardVisible, setIsNodeCardVisible] = useState<
+    boolean
+  >(false);
+  const [isEdgeCardVisible, setIsEdgeCardVisible] = useState<
+    boolean
+  >(false);
   const [edgeTooltipTitle, setEdgeTooltipTitle] = useState<string | null>(null);
   const [edgeTooltipData, setEdgeTooltipData] = useState<
     Array<{ label: string; value: string | number }>
@@ -137,10 +141,10 @@ export const useGraphInteraction = (
           `از یال ${sourceNode?.data?.label || selectedEdge.source} به ${targetNode?.data?.label || selectedEdge.target}`
         );
 
-        setCardContentFlag("edgeTooltip");
+        setIsEdgeCardVisible(true)
         setActiveTooltipEdgeId(edgeId);
       } else {
-        setCardContentFlag(null);
+        setIsEdgeCardVisible(false)
         setActiveTooltipEdgeId(null);
       }
 
@@ -179,7 +183,7 @@ export const useGraphInteraction = (
           };
         });
 
-        setCardContentFlag("nodeTooltip");
+        setIsNodeCardVisible(true)
         setNodeTooltipData(tooltipData);
         setNodeTooltipTitle(nodeLabel);
 
@@ -200,6 +204,7 @@ export const useGraphInteraction = (
               style: {
                 ...edge.style,
                 stroke: isOutgoing ? "#ef4444" : originalStroke,
+                zIndex: isOutgoing ? 1000 : undefined,
                 // ...
               },
             } as any;
@@ -332,10 +337,9 @@ export const useGraphInteraction = (
 
   const closeNodeTooltip = () => {
     // ... (همان کد قبلی)
-    setCardContentFlag(null);
+    setIsNodeCardVisible(false);
     setNodeTooltipTitle(null);
-    setActiveTooltipEdgeId(null);
-    setLayoutedNodes((nds) => nds.map((n) => ({ ...n, selected: false })));
+    setLayoutedNodes((nds) => nds.map((n) => ({ ...n, selected: false })));  
     setLayoutedEdges((eds) =>
       eds.map((e) => ({
         ...e,
@@ -347,10 +351,24 @@ export const useGraphInteraction = (
       }))
     );
   };
+  const closeEdgeTooltip= () => {
+    setIsEdgeCardVisible(false)
+    setActiveTooltipEdgeId(null);
+    setLayoutedEdges((eds) =>
+      eds.map((e) => ({
+        ...e,
+        selected: false,
+        style: {
+          ...e.style,
+          stroke: (e.data as any)?.originalStroke || "#3b82f6",
+        },
+      }))
+    );
+  }
 
   const resetPathfinding = () => {
     setIsPathFinding(false);
-    setCardContentFlag(null);
+    
     setPathStartNodeId(null);
     setPathEndNodeId(null);
     setFoundPaths([]);
@@ -367,7 +385,8 @@ export const useGraphInteraction = (
 
   return {
     activeTooltipEdgeId,
-    cardContentFlag,
+    isNodeCardVisible,
+    isEdgeCardVisible,
     nodeTooltipTitle,
     nodeTooltipData,
     edgeTooltipTitle,
@@ -384,8 +403,10 @@ export const useGraphInteraction = (
     handleSelectPath,
     handleNodeClick,
     closeNodeTooltip,
+    closeEdgeTooltip,
     setIsPathFinding,
-    setCardContentFlag,
+    setIsNodeCardVisible,
+    setIsEdgeCardVisible,
     resetPathfinding,
     calculatePathDuration,
     onPaneClick,

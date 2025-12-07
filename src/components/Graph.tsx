@@ -30,7 +30,8 @@ interface UtilsProps {
 
   GraphInteraction: {
     activeTooltipEdgeId: string | null;
-    cardContentFlag: "nodeTooltip" | "edgeTooltip" | null;
+    isNodeCardVisible: boolean;
+    isEdgeCardVisible: boolean;
     nodeTooltipTitle: string | null;
     nodeTooltipData: Array<{ targetLabel: string; weight: string | number }>;
     edgeTooltipTitle: string | null;
@@ -47,10 +48,10 @@ interface UtilsProps {
     handleSelectPath: (path: Path, index: number) => void;
     handleNodeClick: (_event: React.MouseEvent, node: Node) => void;
     closeNodeTooltip: () => void;
+    closeEdgeTooltip: () => void;
     setIsPathFinding: React.Dispatch<React.SetStateAction<boolean>>;
-    setCardContentFlag: React.Dispatch<
-      React.SetStateAction<"nodeTooltip" | "edgeTooltip" | null>
-    >;
+    setIsNodeCardVisible: React.Dispatch<React.SetStateAction<boolean>>;
+    setIsEdgeCardVisible: React.Dispatch<React.SetStateAction<boolean>>;
     resetPathfinding: () => void;
     calculatePathDuration: (path: Path) => {
       totalDuration: number;
@@ -81,7 +82,8 @@ export default function Graph({
 
   const {
     activeTooltipEdgeId,
-    cardContentFlag,
+    isEdgeCardVisible,
+    isNodeCardVisible,
     nodeTooltipTitle,
     nodeTooltipData,
     edgeTooltipTitle,
@@ -94,6 +96,7 @@ export default function Graph({
     handleEdgeSelect,
     handleNodeClick,
     closeNodeTooltip,
+    closeEdgeTooltip,
     onPaneClick,
   } = utils.GraphInteraction;
 
@@ -188,8 +191,8 @@ export default function Graph({
 
     const processedEdges = layoutedEdges.map((edge) => {
       const isHighlighted = selectedPathEdges.has(edge.id);
-      const isSelected =
-        activeTooltipEdgeId !== null && edge.id === activeTooltipEdgeId;
+      // بررسی می‌کنیم آیا یال دقیقاً همان یال فعال تولتیپ است
+      const isTooltipActive = activeTooltipEdgeId !== null && edge.id === activeTooltipEdgeId;
       const opacity = isHighlighting && !isHighlighted ? 0.1 : 1;
 
       return {
@@ -197,7 +200,7 @@ export default function Graph({
         data: {
           ...edge.data,
           onEdgeSelect: handleEdgeSelect,
-          isTooltipVisible: isSelected,
+          isTooltipVisible: isTooltipActive,
         },
         onClick: () => handleEdgeSelect(edge.id),
         style: {
@@ -206,23 +209,29 @@ export default function Graph({
           strokeWidth: isHighlighted ? 3 : edge.style?.strokeWidth,
           opacity: isPathFinding && !isHighlighted ? 0.2 : opacity,
           transition: "all 0.3s ease",
+          // zIndex را هم می‌توانیم نگه داریم اما ترتیب آرایه مهم‌تر است
+          zIndex: isTooltipActive ? 1000 : (edge.selected || isHighlighted) ? 500 : undefined,
         },
-        // zIndex فقط زمانی تنظیم شود که واقعاً انتخاب شده باشد
-        zIndex: isSelected ? 1000 : isHighlighted ? 500 : undefined,
       };
     });
 
-    // فقط زمانی sort کن که یال انتخاب‌شده وجود داشته باشد
-    if (activeTooltipEdgeId !== null) {
-      return processedEdges.sort((a, b) => {
+    // --- اصلاح مهم: همیشه مرتب‌سازی را انجام می‌دهیم ---
+    return processedEdges.sort((a, b) => {
+      // اولویت ۱: یالی که تولتیپش باز است (activeTooltipEdgeId) باید بالاترین باشد
+      if (activeTooltipEdgeId) {
         if (a.id === activeTooltipEdgeId) return 1;
         if (b.id === activeTooltipEdgeId) return -1;
-        return 0;
-      });
-    }
+      }
 
-    // اگر هیچ یالی انتخاب نشده، ترتیب اولیه را حفظ کن
-    return processedEdges;
+      // اولویت ۲: یال‌هایی که انتخاب شده‌اند (selected) - مثلاً خروجی‌های گره
+      // (این ویژگی در handleNodeClick روی یال‌های خروجی true می‌شود)
+      if (a.selected && !b.selected) return 1;
+      if (!a.selected && b.selected) return -1;
+
+      // حفظ ترتیب برای بقیه
+      return 0;
+    });
+
   }, [
     layoutedEdges,
     handleEdgeSelect,
@@ -250,24 +259,24 @@ export default function Graph({
   return (
     <div className={`${className} w-full h-full`}>
       <div className="relative w-full h-full">
-        {cardContentFlag && (
+        {isNodeCardVisible && (
           <Card className="absolute right-2 z-100 p-2 max-h-[250px]">
-            {cardContentFlag === "nodeTooltip" && (
               <NodeTooltip
                 nodeTooltipTitle={nodeTooltipTitle}
                 nodeTooltipData={nodeTooltipData}
                 onClose={closeNodeTooltip}
               />
-            )}
-            {cardContentFlag === "edgeTooltip" && (
+          </Card>
+          )}
+          {isEdgeCardVisible && (
+          <Card fullWidth className="absolute z-100 bottom-4">
               <EdgeTooltip
                 edgeTooltipData={edgeTooltipData}
                 edgeTooltipTitle={edgeTooltipTitle}
-                onClose={closeNodeTooltip}
+                onClose={closeEdgeTooltip}
               />
-            )}
           </Card>
-        )}
+          )}
 
         <ReactFlow
           nodes={nodesForRender}
