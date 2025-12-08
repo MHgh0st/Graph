@@ -112,11 +112,29 @@ export const useGraphLayout = (
     }
 
     const nodeHeight = 50;
-    const elkNodes = nodesToLayout.map((node: Node) => ({
-      id: node.id,
-      width: (node.style?.width as number) || 250,
-      height: nodeHeight,
-    }));
+    const elkNodes = nodesToLayout.map((node: Node) => {
+      const elkNode: any = {
+        id: node.id,
+        width: (node.style?.width as number) || 250,
+        height: nodeHeight,
+      };
+
+      // اجبار گره شروع به لایه اول (سمت چپ)
+      if (node.id === "START_NODE") {
+        elkNode.layoutOptions = {
+          "org.eclipse.elk.layered.layering.layerConstraint": "FIRST",
+        };
+      }
+
+      // اجبار گره پایان به لایه آخر (سمت راست)
+      if (node.id === "END_NODE") {
+        elkNode.layoutOptions = {
+          "org.eclipse.elk.layered.layering.layerConstraint": "LAST",
+        };
+      }
+
+      return elkNode;
+    });
 
     const elkEdges = edgesToLayout.map((edge: Edge) => ({
       id: edge.id,

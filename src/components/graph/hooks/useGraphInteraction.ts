@@ -355,6 +355,7 @@ export const useGraphInteraction = (
         },
       }))
     );
+    closeEdgeTooltip();
   };
   const closeEdgeTooltip= () => {
     setIsEdgeCardVisible(false)
