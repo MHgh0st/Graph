@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from "react";
 import { Node, Edge } from "@xyflow/react";
-import type { Path, Variant, ExtendedPath } from "src/types/types";
+import type { Path, Variant, ExtendedPath, NodeTooltipType } from "src/types/types";
 
 export const useGraphInteraction = (
   allNodes: Node[],
@@ -33,7 +33,7 @@ export const useGraphInteraction = (
   >([]);
   const [nodeTooltipTitle, setNodeTooltipTitle] = useState<string | null>(null);
   const [nodeTooltipData, setNodeTooltipData] = useState<
-    Array<{ targetLabel: string; weight: string | number }>
+    Array<NodeTooltipType>
   >([]);
 
   const [isPathFinding, setIsPathFinding] = useState(false);
@@ -264,6 +264,9 @@ export const useGraphInteraction = (
           if (startIdx !== -1 && endIdx !== -1 && startIdx < endIdx) {
             // برش مسیر (Slice)
             const pathNodes = variant.Variant_Path.slice(startIdx, endIdx + 1);
+            const isAbsoluteStart = startIdx === 0;
+            const isAbsoluteEnd = endIdx === variant.Variant_Path.length - 1;
+            const pathType = isAbsoluteStart && isAbsoluteEnd ? "absolute" : "relative";
 
             if (selectedNodeIds && selectedNodeIds.size > 0) {
               const isPathInSubgraph = pathNodes.every((nodeId) =>
@@ -298,6 +301,7 @@ export const useGraphInteraction = (
               _fullPathNodes: variant.Variant_Path,
               _startIndex: startIdx,
               _endIndex: endIdx,
+              _pathType: pathType,
             });
           }
         });

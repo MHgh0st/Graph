@@ -20,6 +20,7 @@ export interface ExtendedPath extends Path {
   _fullPathNodes?: string[]; // لیست تمام گره‌های این واریانت
   _startIndex?: number; // ایندکس گره شروع در مسیر کامل
   _endIndex?: number; // ایندکس گره پایان در مسیر کامل
+  _pathType?: "absolute" | "relative";
 }
 
 export interface PaletteOption {
@@ -51,4 +52,8 @@ export interface ProcessMiningData {
   variants: Variant[];
   startActivities: string[];
   endActivities: string[];
+}
+
+export interface NodeTooltip{
+  edgeId: string; targetLabel: string; weight: string | number 
 }

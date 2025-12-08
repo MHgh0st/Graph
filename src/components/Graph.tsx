@@ -15,7 +15,7 @@ import { Card } from "@heroui/card";
 import { StyledSmoothStepEdge } from "./graph/ui/StyledSmoothStepEdge";
 import { NodeTooltip } from "./graph/ui/NodeTooltip";
 import EdgeTooltip from "./graph/ui/EdgeTooltip";
-import type { Path } from "src/types/types";
+import type { Path, NodeTooltip as NodeTooltipType } from "src/types/types";
 
 interface UtilsProps {
   GraphLayout: {
@@ -33,7 +33,7 @@ interface UtilsProps {
     isNodeCardVisible: boolean;
     isEdgeCardVisible: boolean;
     nodeTooltipTitle: string | null;
-    nodeTooltipData: Array<{ edgeId: string; targetLabel: string; weight: string | number }>;
+    nodeTooltipData: Array<NodeTooltipType>;
     edgeTooltipTitle: string | null;
     edgeTooltipData: Array<{ label: string; value: string | number }>;
     pathStartNodeId: string | null;

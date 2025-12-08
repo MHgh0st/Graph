@@ -3,10 +3,10 @@ import { Divider } from "@heroui/divider";
 import { Button } from "@heroui/button";
 import { Tooltip } from "@heroui/tooltip";
 import { X, Monitor } from "lucide-react"; // یا آیکون بستن خودتون
-
+import type { NodeTooltip } from "src/types/types";
 interface NodeTooltipProps {
   nodeTooltipTitle: string | null;
-  nodeTooltipData: Array<{edgeId: string; targetLabel: string; weight: string | number }>;
+  nodeTooltipData: Array<NodeTooltip>;
   onClose: () => void;
   onEdgeSelect: (edgeId: string) => void;
 }
