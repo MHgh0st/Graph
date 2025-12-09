@@ -84,7 +84,8 @@ export default function NodesFilterCard({
         startContent={<Search size={24} />}
         value={searchValue}
         onChange={(e) => {
-          setSearchValue(e.target.value);
+          const value = e.target.value.replace('ی', 'ي');
+          setSearchValue(value);
         }}
       />
 

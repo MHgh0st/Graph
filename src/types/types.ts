@@ -54,6 +54,6 @@ export interface ProcessMiningData {
   endActivities: string[];
 }
 
-export interface NodeTooltip{
-  edgeId: string; targetLabel: string; weight: string | number 
+export interface NodeTooltipType{
+  edgeId: string; label: string; weight: string | number ; direction: 'incoming' | 'outgoing'
 }

@@ -1,6 +1,6 @@
 import { Button } from "@heroui/button";
 import { Form } from "@heroui/form";
-import { DateRangePicker } from "@heroui/date-picker";
+import { Accordion, AccordionItem } from "@heroui/accordion";
 import { NumberInput } from "@heroui/number-input";
 import { useState } from "react";
 import TimeFilterSection from "./TimeFilterSection";
@@ -38,8 +38,14 @@ export default function Filters({
   const [timeUnitFilter, setTimeUnitFilter] = useState<
     "s" | "m" | "h" | "d" | "w"
   >("d");
+
+  const [dateRangeError, setDateRangeError] = useState<string | null>(null);
+
   const handleDateChange = (value: DateRange | null) => {
     setDateRange(value);
+    if (value?.start && value?.end) {
+      setDateRangeError(null);
+    }
   };
 
   const getISOStringRange = (dateValue: DateRange) => {
@@ -66,6 +72,12 @@ export default function Filters({
 
   const onSubmit = (e) => {
     e.preventDefault();
+    
+    if (!dateRange?.start || !dateRange?.end) {
+      setDateRangeError("لطفا بازه زمانی را مشخص کنید");
+      return;
+    }
+
     const filters: FilterTypes = {
       dateRange: getISOStringRange(dateRange),
       minCaseCount: caseIdRange?.min,
@@ -95,26 +107,23 @@ export default function Filters({
         className={`h-full flex- flex-col justify-between ${className}`}
         onSubmit={onSubmit}
       >
-        <div className="w-full space-y-4" dir="ltr">
-          {/* <DateRangePicker
-            dir="ltr"
-            label="انتخاب بازه زمانی"
-            labelPlacement="inside"
-            // visibleMonths={3}
-            showMonthAndYearPickers
-            isRequired
-            classNames={{
-              label: "text-right",
-            }}
-            value={dateRange}
-            onChange={handleDateChange}
-          /> */}
-          <PersianRangeDatePicker
-            onChange={handleDateChange}
-            placeholder={{ start: "از تاریخ", end: "تا تاریخ" }}
-          />
-          <div className="space-y-4" dir="rtl">
-            <NumberInput
+        
+        <div className="w-full space-y-4" dir="rtl">
+          <Accordion selectionMode='multiple' defaultSelectedKeys={['dateRangeFilter']} variant="splitted" itemClasses={{
+            base: 'shadow-none bg-default-100 border-2 border-default-200'
+          }}>
+            <AccordionItem title="فیلتر بازه زمانی" key='dateRangeFilter'>
+              <PersianRangeDatePicker
+                onChange={handleDateChange}
+                placeholder={{ start: "از تاریخ", end: "تا تاریخ" }}
+                isRequired
+                isInvalid={!!dateRangeError}
+                errorMessage={dateRangeError || undefined}
+              />
+            </AccordionItem>
+            <AccordionItem title="فیلتر تعداد پرونده ها">
+              <div className="space-y-2">
+                <NumberInput
               label="حداقل تعداد پرونده ها را وارد کنید"
               value={caseIdRange?.min}
               minValue={0}
@@ -136,7 +145,11 @@ export default function Filters({
                 }))
               }
             />
-            <TimeFilterSection
+              </div>
+            </AccordionItem>
+            <AccordionItem title="فیلتر زمان رسیدگی به پرونده ها">
+              <div className="space-y-4">
+                <TimeFilterSection
               title="حداقل زمان رسیدگی به پرونده ها:"
               setTime={(time) => {
                 setMeanTimeRange((prev) => ({
@@ -187,7 +200,12 @@ export default function Filters({
                 </Select>
               )}
             </div>
-          </div>
+              </div>
+            </AccordionItem>
+          </Accordion>
+          
+            
+            
         </div>
         <div className="w-full">
           <Button fullWidth color="primary" type="submit" isLoading={isLoading}>

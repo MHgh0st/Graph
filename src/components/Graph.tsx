@@ -260,7 +260,7 @@ export default function Graph({
     <div className={`${className} w-full h-full`}>
       <div className="relative w-full h-full">
         {isNodeCardVisible && (
-          <Card className="absolute right-2 z-100 p-2 max-h-[250px]">
+          <Card className="absolute right-2 z-100 p-2 max-h-[250px] min-w-[600px]">
               <NodeTooltip
                 nodeTooltipTitle={nodeTooltipTitle}
                 nodeTooltipData={nodeTooltipData}

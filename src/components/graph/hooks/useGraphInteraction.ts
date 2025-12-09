@@ -52,6 +52,17 @@ export const useGraphInteraction = (
     return map;
   }, [allEdges]);
 
+  const incomingEdgesMap = useMemo(() => {
+    const map = new Map<string, Edge[]>();
+    allEdges.forEach((edge) => {
+      if (!map.has(edge.target)) {
+        map.set(edge.target, []);
+      }
+      map.get(edge.target)!.push(edge);
+    });
+    return map;
+  }, [allEdges]);
+
   // مپ برای دسترسی سریع به یال‌ها جهت پیدا کردن ID یال بین دو نود
   // کلید: "Source->Target" | مقدار: Edge
   const edgeLookupMap = useMemo(() => {
@@ -172,41 +183,69 @@ export const useGraphInteraction = (
       if (!isPathFinding) {
         const nodeLabel = (node.data?.label as string) || (node.id as string);
         setNodeTooltipData([]);
+
         const outgoingEdges = outgoingEdgesMap.get(node.id) || [];
         const outgoingEdgeIds = new Set(outgoingEdges.map((e) => e.id));
-        const tooltipData = outgoingEdges.map((edge) => {
+        
+        const outgoingTooltipData = outgoingEdges.map((edge) => {
           const targetNode = allNodes.find((n) => n.id === edge.target);
           return {
-            targetLabel:
-              (targetNode?.data?.label as string) || (edge.target as string),
+            label: (targetNode?.data?.label as string) || (edge.target as string), // نام نود مقصد
             weight: (edge.label as string) || "N/A",
             edgeId: edge.id,
+            direction: "outgoing", // جهت یال
           };
         });
 
-        setIsNodeCardVisible(true)
-        setNodeTooltipData(tooltipData);
+        // 2. دریافت یال‌های ورودی (Incoming) - بخش جدید
+        const incomingEdges = incomingEdgesMap.get(node.id) || [];
+        const incomingEdgeIds = new Set(incomingEdges.map((e) => e.id));
+
+        const incomingTooltipData = incomingEdges.map((edge) => {
+          const sourceNode = allNodes.find((n) => n.id === edge.source);
+          return {
+            label: (sourceNode?.data?.label as string) || (edge.source as string), // نام نود مبدا
+            weight: (edge.label as string) || "N/A",
+            edgeId: edge.id,
+            direction: "incoming", // جهت یال
+          };
+        });
+
+        // ترکیب داده‌ها برای نمایش در تولتیپ
+        // (نوع NodeTooltipType باید فیلد direction را پشتیبانی کند یا از any استفاده کنید)
+        setIsNodeCardVisible(true);
+        setNodeTooltipData([...outgoingTooltipData, ...incomingTooltipData] as any);
         setNodeTooltipTitle(nodeLabel);
 
+        // هایلایت کردن نود انتخاب شده
         setLayoutedNodes((nds) =>
           nds.map((n) => ({ ...n, selected: n.id === node.id }))
         );
 
+        // هایلایت کردن یال‌ها (ورودی و خروجی)
         setLayoutedEdges((prevEdges) =>
           prevEdges.map((edge) => {
-            // ... (منطق استایل قبلی حفظ شود)
             const originalStroke =
               (edge.data as any)?.originalStroke || "#3b82f6";
-            // (خلاصه کردم کد رو، همون منطق قبلی رو بذارید)
+
             const isOutgoing = outgoingEdgeIds.has(edge.id);
+            const isIncoming = incomingEdgeIds.has(edge.id);
+            
+            // رنگ‌بندی: خروجی قرمز، ورودی سبز (یا هر رنگی که دوست دارید)
+            let strokeColor = originalStroke;
+            if (isOutgoing) strokeColor = "#ef4444"; 
+            else if (isIncoming) strokeColor = "#a6058eff"; 
+
+            const isSelected = isOutgoing || isIncoming;
+
             return {
               ...edge,
-              selected: isOutgoing,
+              selected: isSelected,
               style: {
                 ...edge.style,
-                stroke: isOutgoing ? "#ef4444" : originalStroke,
-                zIndex: isOutgoing ? 1000 : undefined,
-                // ...
+                stroke: strokeColor,
+                zIndex: isSelected ? 1000 : undefined,
+                strokeWidth: isSelected ? 3 : 1, // ضخیم کردن یال‌های متصل
               },
             } as any;
           })
@@ -329,6 +368,7 @@ export const useGraphInteraction = (
       pathStartNodeId,
       pathEndNodeId,
       outgoingEdgesMap,
+      incomingEdgesMap,
       allNodes,
       variants, // وابستگی جدید
       edgeLookupMap,

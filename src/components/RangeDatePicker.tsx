@@ -23,6 +23,10 @@ interface PersianRangeDatePickerProps {
   value?: DateRange;
   onChange?: (range: DateRange) => void;
   className?: string;
+  isRequired?: boolean;
+  isInvalid?: boolean;
+  errorMessage?: string;
+  placeholder?: { start: string; end: string };
 }
 
 const PERSIAN_MONTHS = [
@@ -66,6 +70,8 @@ interface SinglePersianDatePickerProps {
   maxDate?: DateValue | null;
   placeholder?: string;
   isDisabled?: boolean;
+  isRequired?: boolean;
+  isInvalid?: boolean;
 }
 
 const SinglePersianDatePicker: React.FC<SinglePersianDatePickerProps> = ({
@@ -76,6 +82,8 @@ const SinglePersianDatePicker: React.FC<SinglePersianDatePickerProps> = ({
   maxDate,
   placeholder = "انتخاب تاریخ",
   isDisabled = false,
+  isRequired = false,
+  isInvalid = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [viewDate, setViewDate] = useState<Date>(new Date());
@@ -166,7 +174,7 @@ const SinglePersianDatePicker: React.FC<SinglePersianDatePickerProps> = ({
   return (
     <div className="w-full">
       <label className="text-xs font-medium text-default-500 mb-1 block mr-1">
-        {label}
+        {label} {isRequired && <span className="text-danger">*</span>}
       </label>
       <Popover isOpen={isOpen} onOpenChange={setIsOpen} placement="bottom" offset={4}>
         <PopoverTrigger>
@@ -175,7 +183,8 @@ const SinglePersianDatePicker: React.FC<SinglePersianDatePickerProps> = ({
             className={cn(
               "w-full justify-between bg-default-50 border-default-200 h-12 text-medium",
               !value && "text-default-400",
-              isDisabled && "opacity-50 cursor-not-allowed"
+              isDisabled && "opacity-50 cursor-not-allowed",
+              isInvalid && "border-danger text-danger"
             )}
             isDisabled={isDisabled}
             endContent={
@@ -217,7 +226,7 @@ const SinglePersianDatePicker: React.FC<SinglePersianDatePickerProps> = ({
                 aria-label="ماه"
                 disallowEmptySelection
               >
-                {months.map((m) => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+                {months.map((m) => <SelectItem key={m.value}>{m.label}</SelectItem>)}
               </Select>
               <Select
                 size="sm"
@@ -227,7 +236,7 @@ const SinglePersianDatePicker: React.FC<SinglePersianDatePickerProps> = ({
                 aria-label="سال"
                 disallowEmptySelection
               >
-                {years.map((y) => <SelectItem key={y.value} value={y.value}>{y.label}</SelectItem>)}
+                {years.map((y) => <SelectItem key={y.value}>{y.label}</SelectItem>)}
               </Select>
             </div>
 
@@ -280,6 +289,10 @@ const PersianRangeDatePicker: React.FC<PersianRangeDatePickerProps> = ({
   value,
   onChange,
   className,
+  isRequired = false,
+  isInvalid = false,
+  errorMessage,
+  placeholder,
 }) => {
   const [range, setRange] = useState<DateRange>({
     start: value?.start || null,
@@ -330,7 +343,7 @@ const PersianRangeDatePicker: React.FC<PersianRangeDatePickerProps> = ({
   };
 
   const handleClear = () => {
-    const newRange = { start: null, end: null };
+    const newRange: DateRange = { start: null, end: null };
     setRange(newRange);
     onChange?.(newRange);
   };
@@ -372,8 +385,10 @@ const PersianRangeDatePicker: React.FC<PersianRangeDatePickerProps> = ({
             label="تاریخ شروع"
             value={range.start}
             onChange={handleStartChange}
-            placeholder="از تاریخ..."
+            placeholder={placeholder?.start || "از تاریخ..."}
             maxDate={range.end}
+            isRequired={isRequired}
+            isInvalid={isInvalid}
           />
         </div>
         
@@ -390,10 +405,15 @@ const PersianRangeDatePicker: React.FC<PersianRangeDatePickerProps> = ({
             onChange={handleEndChange}
             minDate={range.start}
             isDisabled={!range.start}
-            placeholder="تا تاریخ..."
+            placeholder={placeholder?.end || "تا تاریخ..."}
+            isRequired={isRequired}
+            isInvalid={isInvalid}
           />
         </div>
       </div>
+      {isInvalid && errorMessage && (
+        <div className="text-tiny text-danger">{errorMessage}</div>
+      )}
     </div>
   );
 };

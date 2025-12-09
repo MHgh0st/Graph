@@ -369,7 +369,8 @@ export const PathfindingCard = ({
                 placeholder="جستجو بین راس ها"
                 startContent={<Search size={24} />}
                 onChange={(e) => {
-                  const value = e.target.value.toLowerCase();
+                  const value = e.target.value.toLowerCase().replace('ی', 'ي');
+                  
                   if (!value.trim()) {
                     setSearchedNodes(baseNodes);
                     return;
