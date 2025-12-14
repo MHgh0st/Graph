@@ -15,7 +15,7 @@ import { Card } from "@heroui/card";
 import { StyledSmoothStepEdge } from "./graph/ui/StyledSmoothStepEdge";
 import { NodeTooltip } from "./graph/ui/NodeTooltip";
 import EdgeTooltip from "./graph/ui/EdgeTooltip";
-import type { Path, NodeTooltipType } from "src/types/types";
+import type { Path, NodeTooltipType, ExtendedPath } from "src/types/types";
 
 interface UtilsProps {
   GraphLayout: {
@@ -44,7 +44,7 @@ interface UtilsProps {
     selectedPathIndex: number | null;
     isPathfindingLoading: boolean;
     isPathFinding: boolean;
-    handleEdgeSelect: (id: string) => void;
+    handleEdgeSelect: (id: string, overrides?: any) => void;
     handleSelectPath: (path: Path, index: number) => void;
     handleNodeClick: (_event: React.MouseEvent, node: Node) => void;
     closeNodeTooltip: () => void;
@@ -93,12 +93,19 @@ export default function Graph({
     selectedPathNodes,
     selectedPathEdges,
     isPathFinding,
+    selectedPathIndex,
+    foundPaths,
     handleEdgeSelect,
     handleNodeClick,
     closeNodeTooltip,
     closeEdgeTooltip,
     onPaneClick,
+
   } = utils.GraphInteraction;
+
+  const formatDuration = (seconds: number) => {
+    return `${(seconds / 3600 / 24).toFixed(2)} روز`;
+  };
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
@@ -189,45 +196,107 @@ export default function Graph({
   const edgesForRender = useMemo(() => {
     const isHighlighting = selectedPathEdges.size > 0;
 
+    let activePath: ExtendedPath | null = null;
+    if (selectedPathIndex !== null && foundPaths && foundPaths[selectedPathIndex]) {
+        activePath = foundPaths[selectedPathIndex] as ExtendedPath;
+    }
+
     const processedEdges = layoutedEdges.map((edge) => {
       const isHighlighted = selectedPathEdges.has(edge.id);
       const isTooltipActive = activeTooltipEdgeId !== null && edge.id === activeTooltipEdgeId;
-      const opacity = isHighlighting && !isHighlighted ? 0.1 : 1;
+      
+      const opacity = (utils.GraphInteraction.isPathFinding || isHighlighting) && !isHighlighted 
+        ? 0.2 
+        : (edge.style?.opacity ?? 1);
+
+      let displayLabel = edge.label; 
+      let tooltipMeanTime = (edge.data as any)?.Tooltip_Mean_Time;
+      let tooltipTotalTime = (edge.data as any)?.Tooltip_Total_Time;
+      // متغیر برای ذخیره دیتای جایگزین تولتیپ
+      let tooltipOverride = undefined;
+
+      if (activePath && isHighlighted) {
+         const pathEdges = activePath.edges || [];
+         const edgeIndices: number[] = [];
+         
+         pathEdges.forEach((id: string, idx: number) => {
+             if (id === edge.id) edgeIndices.push(idx);
+         });
+         
+         if (edgeIndices.length > 0 && 
+             activePath._variantTimings && 
+             activePath._variantTimings.length > 0 &&
+             typeof activePath._startIndex === 'number') {
+             
+             let totalDuration = 0;
+             let count = 0;
+             
+             edgeIndices.forEach(idx => {
+                 const timeIndex = activePath._startIndex! + idx;
+                 const start = activePath._variantTimings![timeIndex];
+                 const end = activePath._variantTimings![timeIndex + 1];
+                 
+                 if (typeof start === 'number' && typeof end === 'number') {
+                     totalDuration += Math.max(0, end - start);
+                     count++;
+                 }
+             });
+             
+             if (count > 0) {
+                 const formatted = formatDuration(totalDuration);
+                 displayLabel = formatted;
+                 tooltipMeanTime = count > 1 ? `${formatted} (مجموع ${count} بار عبور)` : formatted;
+
+                 const frequency = activePath._frequency || 0;
+                 const totalVariantDuration = totalDuration * frequency;
+                 tooltipTotalTime = formatDuration(totalVariantDuration);
+                 
+                 // ساخت آبجکت جایگزین برای تولتیپ
+                 tooltipOverride = {
+                     label: (foundPaths[selectedPathIndex] as ExtendedPath)._frequency!, // نمایش تعداد دفعات عبور به جای فرکانس کل
+                     meanTime: tooltipMeanTime,
+                     totalTime: tooltipTotalTime
+                 };
+             }
+         }
+      }
+
+      // استایل دهی
+      let finalStroke = edge.style?.stroke;
+      let finalStrokeWidth = edge.style?.strokeWidth;
+
+      
 
       return {
         ...edge,
+        label: displayLabel,
         data: {
           ...edge.data,
-          onEdgeSelect: handleEdgeSelect,
+          // پاس دادن تابع با wrapper برای استفاده در جاهای دیگر اگر لازم شد
+          onEdgeSelect: (id: string) => handleEdgeSelect(id, tooltipOverride),
           isTooltipVisible: isTooltipActive,
+          Tooltip_Mean_Time: tooltipMeanTime,
         },
-        onClick: () => handleEdgeSelect(edge.id),
+        // --- تغییر مهم: پاس دادن tooltipOverride هنگام کلیک ---
+        onClick: () => handleEdgeSelect(edge.id, tooltipOverride),
         style: {
           ...(edge.style || {}),
-          stroke: edge.style?.stroke,
-          strokeWidth: edge.style?.strokeWidth,
-          opacity: (isPathFinding || isHighlighting) && !isHighlighted ? 0.2 : (edge.style?.opacity ?? 1),
+          stroke: finalStroke,
+          strokeWidth: finalStrokeWidth,
+          opacity: opacity,
           transition: "all 0.3s ease",
-          // zIndex را هم می‌توانیم نگه داریم اما ترتیب آرایه مهم‌تر است
           zIndex: isTooltipActive ? 1000 : (edge.selected || isHighlighted) ? 500 : undefined,
         },
       };
     });
 
-    // --- اصلاح مهم: همیشه مرتب‌سازی را انجام می‌دهیم ---
     return processedEdges.sort((a, b) => {
-      // اولویت ۱: یالی که تولتیپش باز است (activeTooltipEdgeId) باید بالاترین باشد
       if (activeTooltipEdgeId) {
         if (a.id === activeTooltipEdgeId) return 1;
         if (b.id === activeTooltipEdgeId) return -1;
       }
-
-      // اولویت ۲: یال‌هایی که انتخاب شده‌اند (selected) - مثلاً خروجی‌های گره
-      // (این ویژگی در handleNodeClick روی یال‌های خروجی true می‌شود)
       if (a.selected && !b.selected) return 1;
       if (!a.selected && b.selected) return -1;
-
-      // حفظ ترتیب برای بقیه
       return 0;
     });
 
@@ -236,7 +305,9 @@ export default function Graph({
     handleEdgeSelect,
     activeTooltipEdgeId,
     selectedPathEdges,
-    isPathFinding,
+    utils.GraphInteraction.isPathFinding,
+    selectedPathIndex,
+    foundPaths,
   ]);
 
   if (isLoading) {

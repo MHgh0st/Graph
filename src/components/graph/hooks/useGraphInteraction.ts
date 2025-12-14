@@ -41,6 +41,8 @@ export const useGraphInteraction = (
   const [pathEndNodeId, setPathEndNodeId] = useState<string | null>(null);
   const [foundPaths, setFoundPaths] = useState<ExtendedPath[]>([]);
 
+
+  
   
 
   const outgoingEdgesMap = useMemo(() => {
@@ -112,7 +114,15 @@ export const useGraphInteraction = (
   }, []);
 
   const handleEdgeSelect = useCallback(
-    (edgeId: string) => {
+    (
+      edgeId: string,
+      // پارامتر جدید برای دریافت اطلاعات جایگزین
+      overrides?: {
+        label?: string | number;
+        meanTime?: string;
+        totalTime?: string;
+      }
+    ) => {
       const selectedEdge = allEdges.find((e) => e.id === edgeId);
 
       setLayoutedEdges((prevEdges) => {
@@ -153,21 +163,34 @@ export const useGraphInteraction = (
 
       if (selectedEdge) {
         const dataToShow = [];
-        if (selectedEdge.label) {
-          dataToShow.push({ label: "تعداد", value: selectedEdge.label });
+        
+        // --- تغییر: استفاده از مقادیر جایگزین (Override) در صورت وجود ---
+        
+        // ۱. تعداد (اگر اورراید شده باشد، مثلا تعداد عبور در مسیر)
+        const labelValue = overrides?.label !== undefined ? overrides.label : selectedEdge.label;
+        if (labelValue) {
+          dataToShow.push({ label: "تعداد", value: labelValue });
         }
-        if (selectedEdge.data?.Tooltip_Mean_Time) {
+
+        // ۲. میانگین زمان (اگر اورراید شده باشد، زمان دقیق مسیر)
+        const meanTimeValue = overrides?.meanTime || selectedEdge.data?.Tooltip_Mean_Time;
+        if (meanTimeValue) {
           dataToShow.push({
             label: "میانگین زمان",
-            value: selectedEdge.data.Tooltip_Mean_Time,
+            value: meanTimeValue,
           });
         }
-        if (selectedEdge.data?.Tooltip_Total_Time) {
+
+        // ۳. زمان کل
+        const totalTimeValue = overrides?.totalTime || selectedEdge.data?.Tooltip_Total_Time;
+        if (totalTimeValue) {
           dataToShow.push({
             label: "زمان کل",
-            value: selectedEdge.data.Tooltip_Total_Time,
+            value: totalTimeValue,
           });
         }
+        // -----------------------------------------------------------
+
         setEdgeTooltipData(dataToShow);
 
         const sourceNode = allNodes.find((n) => n.id === selectedEdge.source);
@@ -371,12 +394,13 @@ export const useGraphInteraction = (
             validPaths.push({
               nodes: pathNodes,
               edges: pathEdges,
-              _variantDuration: accurateDuration, // ذخیره برای استفاده در calculatePathDuration
+              _variantDuration: accurateDuration,
               _frequency: variant.Frequency,
               _fullPathNodes: variant.Variant_Path,
               _startIndex: startIdx,
               _endIndex: endIdx,
               _pathType: pathType,
+              _variantTimings: variant.Avg_Timings,
             });
           }
         });
@@ -452,14 +476,12 @@ export const useGraphInteraction = (
 
   const resetPathfinding = () => {
     setIsPathFinding(false);
-    
     setPathStartNodeId(null);
     setPathEndNodeId(null);
     setFoundPaths([]);
     setSelectedPathNodes(new Set());
     setSelectedPathEdges(new Set());
     setSelectedPathIndex(null);
-    // ورکر نداریم که ریست کنیم
   };
 
   const onPaneClick = useCallback(() => {

@@ -21,6 +21,7 @@ export interface ExtendedPath extends Path {
   _startIndex?: number; // ایندکس گره شروع در مسیر کامل
   _endIndex?: number; // ایندکس گره پایان در مسیر کامل
   _pathType?: "absolute" | "relative";
+  _variantTimings?: number[];
 }
 
 export interface PaletteOption {
