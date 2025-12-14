@@ -33,7 +33,7 @@ export default function Filters({
     max: number | null;
   }>({ min: null, max: null });
   const [weightFilter, setWeightFilter] = useState<"cases" | "mean_time">(
-    "cases"
+    "mean_time"
   );
   const [timeUnitFilter, setTimeUnitFilter] = useState<
     "s" | "m" | "h" | "d" | "w"

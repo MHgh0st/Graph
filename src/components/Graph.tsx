@@ -15,7 +15,7 @@ import { Card } from "@heroui/card";
 import { StyledSmoothStepEdge } from "./graph/ui/StyledSmoothStepEdge";
 import { NodeTooltip } from "./graph/ui/NodeTooltip";
 import EdgeTooltip from "./graph/ui/EdgeTooltip";
-import type { Path, NodeTooltip as NodeTooltipType } from "src/types/types";
+import type { Path, NodeTooltipType } from "src/types/types";
 
 interface UtilsProps {
   GraphLayout: {
@@ -191,7 +191,6 @@ export default function Graph({
 
     const processedEdges = layoutedEdges.map((edge) => {
       const isHighlighted = selectedPathEdges.has(edge.id);
-      // بررسی می‌کنیم آیا یال دقیقاً همان یال فعال تولتیپ است
       const isTooltipActive = activeTooltipEdgeId !== null && edge.id === activeTooltipEdgeId;
       const opacity = isHighlighting && !isHighlighted ? 0.1 : 1;
 
@@ -205,9 +204,9 @@ export default function Graph({
         onClick: () => handleEdgeSelect(edge.id),
         style: {
           ...(edge.style || {}),
-          stroke: isHighlighted ? "#FFC107" : edge.style?.stroke,
-          strokeWidth: isHighlighted ? 3 : edge.style?.strokeWidth,
-          opacity: isPathFinding && !isHighlighted ? 0.2 : opacity,
+          stroke: edge.style?.stroke,
+          strokeWidth: edge.style?.strokeWidth,
+          opacity: (isPathFinding || isHighlighting) && !isHighlighted ? 0.2 : (edge.style?.opacity ?? 1),
           transition: "all 0.3s ease",
           // zIndex را هم می‌توانیم نگه داریم اما ترتیب آرایه مهم‌تر است
           zIndex: isTooltipActive ? 1000 : (edge.selected || isHighlighted) ? 500 : undefined,

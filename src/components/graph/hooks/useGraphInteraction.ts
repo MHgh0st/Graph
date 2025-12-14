@@ -41,6 +41,8 @@ export const useGraphInteraction = (
   const [pathEndNodeId, setPathEndNodeId] = useState<string | null>(null);
   const [foundPaths, setFoundPaths] = useState<ExtendedPath[]>([]);
 
+  
+
   const outgoingEdgesMap = useMemo(() => {
     const map = new Map<string, Edge[]>();
     allEdges.forEach((edge) => {
@@ -72,6 +74,21 @@ export const useGraphInteraction = (
     });
     return map;
   }, [allEdges]);
+
+  const removePath = useCallback((indexToRemove: number) => {
+    setFoundPaths((prevPaths) => {
+      // حذف مسیر از لیست
+      const newPaths = prevPaths.filter((_, index) => index !== indexToRemove);
+      return newPaths;
+    });
+
+    // اگر مسیری که حذف شده، همان مسیری بوده که الان انتخاب شده (Selected)، انتخاب را بردار
+    setSelectedPathIndex((prevIndex) => {
+        if (prevIndex === indexToRemove) return null; // اگر خودش بود، دی‌سلکت کن
+        if (prevIndex !== null && prevIndex > indexToRemove) return prevIndex - 1; // شیفت دادن ایندکس
+        return prevIndex;
+    });
+  }, [setSelectedPathIndex]);
 
   // --- تغییر ۱: محاسبه زمان بر اساس دیتای دقیق واریانت ---
   const calculatePathDuration = useCallback((path: Path) => {
@@ -106,12 +123,19 @@ export const useGraphInteraction = (
             (edge.style?.stroke?.includes("rgba")
               ? edge.style.stroke
               : edge.style?.stroke || "#3b82f6");
+          
           const originalStrokeWidth =
-            (edge.data as any)?.originalStrokeWidth || 2;
+            (edge.data as any)?.originalStrokeWidth ??
+            (edge.selected ? 2 : (edge.style?.strokeWidth ?? 2));
 
           return {
             ...edge,
             selected: isSelected,
+            data: {
+              ...edge.data,
+              originalStroke,
+              originalStrokeWidth,
+            },
             style: {
               ...(edge.style || {}),
               strokeWidth: isSelected ? 4 : originalStrokeWidth,
@@ -226,7 +250,14 @@ export const useGraphInteraction = (
         setLayoutedEdges((prevEdges) =>
           prevEdges.map((edge) => {
             const originalStroke =
-              (edge.data as any)?.originalStroke || "#3b82f6";
+              (edge.data as any)?.originalStroke ||
+              (edge.style?.stroke?.includes("rgba")
+                ? edge.style.stroke
+                : edge.style?.stroke || "#05ff69ff");
+
+             const originalStrokeWidth =
+                (edge.data as any)?.originalStrokeWidth ??
+                (edge.selected ? 2 : (edge.style?.strokeWidth ?? 2));
 
             const isOutgoing = outgoingEdgeIds.has(edge.id);
             const isIncoming = incomingEdgeIds.has(edge.id);
@@ -241,11 +272,16 @@ export const useGraphInteraction = (
             return {
               ...edge,
               selected: isSelected,
+              data: {
+                  ...edge.data,
+                  originalStroke,
+                  originalStrokeWidth,
+              },
               style: {
                 ...edge.style,
                 stroke: strokeColor,
                 zIndex: isSelected ? 1000 : undefined,
-                strokeWidth: isSelected ? 3 : 1, // ضخیم کردن یال‌های متصل
+                strokeWidth: isSelected ? 3 : originalStrokeWidth,
               },
             } as any;
           })
@@ -392,6 +428,7 @@ export const useGraphInteraction = (
         style: {
           ...e.style,
           stroke: (e.data as any)?.originalStroke || "#3b82f6",
+          strokeWidth: (e.data as any)?.originalStrokeWidth || 2,
         },
       }))
     );
@@ -407,6 +444,7 @@ export const useGraphInteraction = (
         style: {
           ...e.style,
           stroke: (e.data as any)?.originalStroke || "#3b82f6",
+          strokeWidth: (e.data as any)?.originalStrokeWidth || 2,
         },
       }))
     );
@@ -456,5 +494,6 @@ export const useGraphInteraction = (
     resetPathfinding,
     calculatePathDuration,
     onPaneClick,
+    removePath,
   };
 };

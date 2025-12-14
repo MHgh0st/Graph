@@ -99,6 +99,7 @@ function App() {
     resetPathfinding,
     calculatePathDuration,
     onPaneClick,
+    removePath,
   } = useGraphInteraction(
     allNodes,
     layoutedEdges,
@@ -229,6 +230,7 @@ function App() {
                           resetPathfinding();
                           setIsPathFinding(true);
                         }}
+                        removePath={removePath}
                       />
                     </Activity>
                     <div

@@ -3,7 +3,7 @@ import { Button } from "@heroui/button";
 import { Accordion, AccordionItem } from "@heroui/accordion";
 import { Tooltip } from "@heroui/tooltip";
 import { Input } from "@heroui/input";
-import { Search, Monitor } from "lucide-react"; // اضافه کردن Monitor
+import { Search, Monitor, X } from "lucide-react"; // اضافه کردن Monitor
 import { Chip } from "@heroui/chip";
 import type { Path, ExtendedPath } from "src/types/types";
 import { useState, useEffect, Activity, useMemo } from "react";
@@ -23,6 +23,7 @@ interface PathfindingCardProps {
   };
   handleNodeClick: (_event: React.MouseEvent, node: Node) => void;
   resetPathfinding: () => void;
+  removePath: (index: number) => void;
   className?: string;
 }
 
@@ -38,6 +39,7 @@ export const PathfindingCard = ({
   calculatePathDuration,
   handleNodeClick,
   resetPathfinding,
+  removePath,
   className,
 }: PathfindingCardProps) => {
   const [processedPaths, setProcessedPaths] = useState<Path[]>([]);
@@ -171,7 +173,13 @@ export const PathfindingCard = ({
               key={globalIndex}
               title={`مسیر ${globalIndex + 1} (تعداد: ${extPath._frequency || "?"})`}
               startContent={
-                <div onClick={(e) => e.stopPropagation()} className="ms-2">
+                <div className="flex items-center">
+                  <Tooltip content="حذف مسیر" showArrow>
+                    <Button isIconOnly variant="light" color="danger" size="sm" onPress={() => removePath(globalIndex)}>
+                    <X size={16} />
+                  </Button>
+                  </Tooltip>
+                  <div onClick={(e) => e.stopPropagation()} className="ms-2">
                   <Tooltip content={`مشخص کردن مسیر ${globalIndex + 1}`} showArrow>
                     <Button
                       as="div"
@@ -183,6 +191,7 @@ export const PathfindingCard = ({
                       <Monitor size={16} />
                     </Button>
                   </Tooltip>
+                </div>
                 </div>
               }
               itemClasses={{
