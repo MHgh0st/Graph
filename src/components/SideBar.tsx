@@ -3,6 +3,7 @@ import {
   LineSquiggle,
   Settings,
   Workflow,
+  RouteOff
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { SidebarTab } from "../types/types";
@@ -35,7 +36,7 @@ export default function SideBar({
       >
         {Icon && <Icon size={20} />}
         <p
-          className={`text-xs py-1 px-3 rounded-full transition-all 
+          className={`text-xs py-1 px-3 rounded-full transition-all text-center
             ${isActive ? "bg-secondary/20" : "group-hover:bg-secondary/10"}`}
         >
           {title}
@@ -63,6 +64,11 @@ export default function SideBar({
       title: "گره ها",
       icon: Workflow,
       name: "Nodes",
+    },
+    {
+      title: "مسیر های پرت",
+      icon: RouteOff,
+      name: "Outliers",
     },
     {
       title: "تنظیمات",

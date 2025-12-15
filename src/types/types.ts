@@ -30,7 +30,7 @@ export interface PaletteOption {
   gradient: string;
 }
 
-export type SidebarTab = "Filter" | "Routing" | "Settings" | "Nodes";
+export type SidebarTab = "Filter" | "Routing" | "Settings" | "Nodes" | "Outliers";
 
 export interface GraphData {
   Source_Activity: string;
@@ -51,6 +51,7 @@ export interface Variant {
 export interface ProcessMiningData {
   graphData: GraphData[];
   variants: Variant[];
+  outliers: Variant[];
   startActivities: string[];
   endActivities: string[];
 }

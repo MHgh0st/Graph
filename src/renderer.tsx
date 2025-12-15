@@ -23,12 +23,14 @@ import SettingsCard from "./components/SettingsCard";
 import NodesFilterCard from "./components/NodesFilterCard";
 import { paletteOptions } from "./constants/colorPalettes";
 import { Activity } from "react";
+import OutliersCard from "./components/OutliersCard";
 function App() {
   const [dataFilePath, setDataFilePath] = useState<string | null>(null);
   const [isLoadingRenderer, setIsLoadingRenderer] = useState<boolean>(false);
   const [step, setStep] = useState<number>(1);
   const [graphData, setGraphData] = useState<GraphData[] | null>(null);
   const [variants, setVariants] = useState<Variant[] | null>(null);
+  const [outliers, setOutliers] = useState<Variant[] | null>(null);
   const [startEndNodes, setStartEndNodes] = useState<{
     start: string[];
     end: string[];
@@ -52,9 +54,7 @@ function App() {
     null
   );
 
-  useEffect(()=>{
-    console.log('variants: ',variants)
-  },[variants])
+
 
   // --- Logic for filtering layout ---
   // If a path is selected (index !== null), we filter ONLY that path's nodes/edges.
@@ -100,6 +100,7 @@ function App() {
     calculatePathDuration,
     onPaneClick,
     removePath,
+    handleSelectOutlier
   } = useGraphInteraction(
     allNodes,
     layoutedEdges,
@@ -127,6 +128,7 @@ function App() {
         )) as ProcessMiningData;
         setGraphData(data.graphData);
         setVariants(data.variants);
+        setOutliers(data.outliers);
         setStartEndNodes({
           start: data.startActivities,
           end: data.endActivities,
@@ -138,9 +140,10 @@ function App() {
     }
   };
 
-  useEffect(() => {
-    console.log("startEndNodes: ", startEndNodes);
-  }, [startEndNodes]);
+  useEffect(()=>{
+    console.log('outliers: ', outliers)
+  }, [outliers])
+
 
   useEffect(() => {
     if (sideBarActiveTab == "Routing" && graphData) {
@@ -189,22 +192,13 @@ function App() {
               <Activity mode={`${isSideCardShow ? "visible" : "hidden"}`}>
                 <Card className="col-span-6 h-[98%]">
                   <CardHeader className="flex gap-x-3">
-                    {/* <Button
-                      isIconOnly
-                      size="sm"
-                      color="danger"
-                      variant="flat"
-                      onPress={() => {
-                        setIsSideCardShow(false);
-                      }}
-                    >
-                      <X size={20} />
-                    </Button> */}
+                    
                     <p className="text-2xl font-bold">
                       {sideBarActiveTab === "Filter" && "فیلتر ها"}
                       {sideBarActiveTab === "Routing" && "مسیر یابی بین دو یال"}
                       {sideBarActiveTab === "Settings" && "تنظیمات"}
                       {sideBarActiveTab === "Nodes" && "جستجو بین گره ها"}
+                      {sideBarActiveTab === 'Outliers' && "مسیر های پرت گراف"}
                     </p>
                   </CardHeader>
                   <CardBody className="text-right">
@@ -260,6 +254,9 @@ function App() {
                       }}
                       className={`${sideBarActiveTab !== "Settings" && "hidden"}`}
                     />
+                    <Activity mode={`${sideBarActiveTab === "Outliers" ? "visible" : "hidden"}`}>
+                      <OutliersCard outliers={outliers} allNodes={allNodes} selectedIndex={selectedPathIndex} onSelectOutlier={handleSelectOutlier} selectedNodeIds={selectedNodeIds}/>
+                    </Activity>
                   </CardBody>
                 </Card>
               </Activity>

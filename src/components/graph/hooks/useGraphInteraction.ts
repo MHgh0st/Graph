@@ -101,7 +101,7 @@ export const useGraphInteraction = (
         totalDuration: extPath._variantDuration,
         averageDuration:
           path.edges.length > 0
-            ? extPath._variantDuration / path.edges.length
+            ? extPath._variantDuration
             : 0,
       };
     }
@@ -218,6 +218,17 @@ export const useGraphInteraction = (
     setSelectedPathEdges(new Set(path.edges));
     setSelectedPathIndex(index);
   };
+
+  const handleSelectOutlier = (outlierPath: Path, index: number) => {
+    const edgeIds = new Set(outlierPath.edges);
+    const nodeIds = new Set(outlierPath.nodes);
+
+    setSelectedPathEdges(edgeIds);
+    setSelectedPathNodes(nodeIds);
+
+    setFoundPaths([outlierPath]);
+    setSelectedPathIndex(0);
+  }
 
   // --- حذف توابع setupWorker و useEffect مربوطه ---
 
@@ -517,5 +528,6 @@ export const useGraphInteraction = (
     calculatePathDuration,
     onPaneClick,
     removePath,
+    handleSelectOutlier
   };
 };

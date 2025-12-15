@@ -98,7 +98,7 @@ self.onmessage = async (event: MessageEvent) => {
         const edgeColor = scaleEdgeColor(d.Weight_Value);
         const edgeWidth = scaleEdgeWidth(d.Weight_Value);
         return {
-          id: `e${i}`,
+          id: `${d.Source_Activity}->${d.Target_Activity}`,
           source: d.Source_Activity,
           target: d.Target_Activity,
           label: `${d.Edge_Label}`,
