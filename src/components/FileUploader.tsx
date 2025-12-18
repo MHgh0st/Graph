@@ -1,5 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@heroui/button";
+import { 
+  UploadCloud, 
+  FileSpreadsheet, 
+  FileCode, 
+  FileType, 
+  AlertCircle, 
+  CheckCircle2, 
+  ArrowLeft,
+  X
+} from "lucide-react";
+import { Card, CardBody } from "@heroui/card";
+import { Chip } from "@heroui/chip";
 
 export default function FileUploader({
   setPythonPath,
@@ -9,104 +21,190 @@ export default function FileUploader({
   submit: () => void;
 }) {
   const [error, setError] = useState("");
-  const [filePath, setFilePath] = useState(null);
-  const [outputMessage, setOutputMessage] = useState(null);
+  const [filePath, setFilePath] = useState<string | null>(null);
+  
+  // استخراج نام فایل و فرمت برای نمایش
+  const fileName = filePath ? filePath.split(/[\\/]/).pop() : "";
+  const fileExt = fileName ? fileName.split(".").pop()?.toLowerCase() : "";
 
   const handleFileSelect = async () => {
     try {
       if (!window.electronAPI) {
-        throw new Error("window.electronAPI is not available");
+        throw new Error("دسترسی به سیستم فایل امکان‌پذیر نیست (Electron API).");
       }
 
       const result = await window.electronAPI.openFileDialog();
 
       if (!result || result.canceled || result.filePaths.length === 0) {
-        setError("هیچ فایلی انتخاب نشده است.");
+        // اگر کاربر کنسل کرد، ارور ندهیم، فقط چیزی ست نشود
+        return;
+      }
+
+      const selectedPath = result.filePaths[0];
+      
+      // اعتبارسنجی اولیه فرمت
+      const ext = selectedPath.split(".").pop()?.toLowerCase();
+      if (!["csv", "pkl", "parquet"].includes(ext || "")) {
+        setError("فرمت فایل انتخاب شده پشتیبانی نمی‌شود.");
         setFilePath(null);
         return;
       }
 
-      setFilePath(result.filePaths[0]);
+      setFilePath(selectedPath);
       setError("");
-      setOutputMessage(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error("File selection error:", err);
-      setError(
-        `خطا در انتخاب فایل: ${err.message || "مطمئن شوید Preload/IPC برای دیالوگ تنظیم شده است."}`
-      );
+      setError(`خطا در انتخاب فایل: ${err.message}`);
     }
   };
-  const handleProcess = async () => {
+
+  const handleProcess = () => {
     if (!filePath) {
-      setError("لطفاً ابتدا فایل را انتخاب کنید.");
+      setError("لطفاً ابتدا یک فایل معتبر انتخاب کنید.");
       return;
     }
-    setError("");
-    setOutputMessage(null);
-    const fileExtension = filePath.split(".").pop().toLowerCase();
-    const formatType =
-      fileExtension === "csv"
-        ? "csv"
-        : fileExtension === "pkl"
-          ? "pkl"
-          : fileExtension === "parquet"
-            ? "parquet"
-            : "";
+    
     try {
-      if (!formatType) {
-        throw new Error("فرمت فایل نامعتبر است.");
-      }
       setPythonPath(filePath);
       submit();
-    } catch (e) {
-      console.error("خطای پردازش (IPC/Python):", e);
-      setError(e.message || "خطای ناشناخته در پردازش.");
+    } catch (e: any) {
+      console.error("Processing error:", e);
+      setError(e.message || "خطای ناشناخته در شروع پردازش.");
     }
+  };
+
+  const clearFile = () => {
+    setFilePath(null);
+    setError("");
   };
 
   return (
-    <>
-      <div
-        className="h-screen w-screen flex items-center justify-center bg-gray-100"
-        dir="rtl"
-      >
-        <div className="w-11/12 max-w-lg p-6 bg-white rounded-lg shadow-xl text-center space-y-6">
-          <p className="text-2xl font-bold text-gray-800">پردازشگر دیتافریم</p>
+    <div className="h-screen w-screen flex flex-col items-center justify-center bg-slate-50 relative overflow-hidden" dir="rtl">
+      
+      {/* Background Pattern */}
+      <div className="absolute inset-0 z-0 opacity-[0.03]" 
+           style={{ backgroundImage: 'radial-gradient(#475569 1px, transparent 1px)', backgroundSize: '24px 24px' }}>
+      </div>
 
-          <Button
-            className="font-semibold"
-            onPress={handleFileSelect}
-            fullWidth
-            color="primary"
-          >
-            انتخاب فایل ورودی
-          </Button>
+      <Card className="w-[90%] max-w-lg z-10 shadow-2xl border border-white/50 backdrop-blur-sm bg-white/80 rounded-3xl">
+        <CardBody className="p-8 flex flex-col items-center gap-6">
+          
+          {/* Header */}
+          <div className="text-center space-y-2">
+            <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm border border-blue-100">
+              <FileSpreadsheet size={32} />
+            </div>
+            <h1 className="text-2xl font-bold text-slate-800">آپلود داده‌های فرآیند</h1>
+            <p className="text-slate-500 text-sm">
+              برای شروع تحلیل فرآیندکاوی، فایل داده‌های خود را وارد کنید.
+            </p>
+          </div>
 
-          {filePath && (
-            <div className="text-sm text-gray-700 break-all border p-2 rounded bg-gray-50">
-              <p className="font-medium text-right">مسیر انتخاب شده:</p>
-              <p className="font-mono text-left">📂 {filePath}</p>
+          {/* Upload Area / Selected File View */}
+          {!filePath ? (
+            <div 
+              onClick={handleFileSelect}
+              className="w-full group cursor-pointer"
+            >
+              <div className="
+                flex flex-col items-center justify-center gap-4 py-10 px-6
+                border-2 border-dashed border-slate-300 rounded-2xl bg-slate-50/50
+                transition-all duration-300 ease-out
+                group-hover:border-blue-400 group-hover:bg-blue-50/30 group-hover:scale-[1.01]
+              ">
+                <div className="p-4 bg-white rounded-full shadow-sm group-hover:shadow-md transition-shadow">
+                  <UploadCloud size={28} className="text-slate-400 group-hover:text-blue-500 transition-colors" />
+                </div>
+                <div className="text-center space-y-1">
+                  <p className="text-sm font-bold text-slate-700 group-hover:text-blue-600 transition-colors">
+                    برای انتخاب فایل کلیک کنید
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    فرمت‌های پشتیبانی شده: CSV, Parquet, Pickle
+                  </p>
+                </div>
+                
+                {/* Format Chips */}
+                <div className="flex gap-2 mt-2">
+                  <Chip size="sm" variant="flat" className="bg-slate-200/50 text-slate-500 text-[10px] h-6">.csv</Chip>
+                  <Chip size="sm" variant="flat" className="bg-slate-200/50 text-slate-500 text-[10px] h-6">.parquet</Chip>
+                  <Chip size="sm" variant="flat" className="bg-slate-200/50 text-slate-500 text-[10px] h-6">.pkl</Chip>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="w-full animate-appearance-in">
+              <div className="relative flex items-center gap-4 p-4 border border-blue-200 bg-blue-50/50 rounded-2xl">
+                {/* File Icon */}
+                <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center text-blue-600 shadow-sm border border-blue-100 shrink-0">
+                  {fileExt === 'csv' && <FileSpreadsheet size={24} />}
+                  {fileExt === 'pkl' && <FileCode size={24} />}
+                  {fileExt === 'parquet' && <FileType size={24} />}
+                  {!['csv', 'pkl', 'parquet'].includes(fileExt || '') && <FileType size={24} />}
+                </div>
+
+                {/* File Info */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-slate-800 truncate dir-ltr text-right mb-1" title={filePath}>
+                    {fileName}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] bg-blue-200 text-blue-800 px-2 py-0.5 rounded text-uppercase font-mono">
+                      {fileExt?.toUpperCase()}
+                    </span>
+                    <span className="text-[10px] text-slate-500 flex items-center gap-1">
+                      <CheckCircle2 size={12} className="text-emerald-500" />
+                      آماده پردازش
+                    </span>
+                  </div>
+                </div>
+
+                {/* Remove Button */}
+                <button 
+                  onClick={clearFile}
+                  className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-colors absolute top-2 left-2"
+                  title="حذف فایل"
+                >
+                  <X size={18} />
+                </button>
+              </div>
             </div>
           )}
 
-          {error && <p className="text-red-500 font-medium">{error}</p>}
-          {outputMessage && (
-            <p className="text-green-600 whitespace-pre-line border border-green-200 p-3 rounded-md">
-              {outputMessage}
-            </p>
+          {/* Error Message */}
+          {error && (
+            <div className="w-full p-3 rounded-xl bg-rose-50 border border-rose-100 flex items-start gap-3 animate-appearance-in">
+              <AlertCircle size={20} className="text-rose-500 shrink-0 mt-0.5" />
+              <p className="text-xs text-rose-600 leading-5 font-medium">{error}</p>
+            </div>
           )}
 
-          <Button
-            className="font-semibold"
-            onPress={handleProcess}
-            isDisabled={!filePath}
-            fullWidth
-            color="success"
-          >
-            پردازش فایل
-          </Button>
-        </div>
+          {/* Action Button */}
+          <div className="w-full pt-2">
+            <Button
+              size="lg"
+              fullWidth
+              color="primary"
+              variant="shadow"
+              isDisabled={!filePath}
+              onPress={handleProcess}
+              className={`
+                font-bold text-base h-12 rounded-xl shadow-lg transition-all
+                ${!filePath ? "opacity-50" : "shadow-blue-500/30 hover:scale-[1.02]"}
+              `}
+              startContent={!filePath ? <UploadCloud size={20} /> : <ArrowLeft size={20} />}
+            >
+              {filePath ? "شروع پردازش و نمایش گراف" : "منتظر انتخاب فایل..."}
+            </Button>
+          </div>
+
+        </CardBody>
+      </Card>
+      
+      {/* Footer / Version Info (Optional) */}
+      <div className="absolute bottom-4 text-center text-slate-400 text-[10px]">
+        Process Mining Graph Visualizer v1.0
       </div>
-    </>
+    </div>
   );
 }

@@ -7,7 +7,7 @@ import { ReactFlowProvider, Node } from "@xyflow/react";
 import ProcessData from "./utils/ProcessData";
 import FileUploader from "./components/FileUploader";
 import Graph from "./components/Graph";
-import Filters from "./components/Filters";
+import Filters from "./components/sideBarCards/Filters";
 import {
   FilterTypes,
   SidebarTab,
@@ -18,14 +18,14 @@ import {
 import SideBar from "./components/SideBar";
 import { useGraphLayout } from "./components/graph/hooks/useGraphLayout";
 import { useGraphInteraction } from "./components/graph/hooks/useGraphInteraction";
-import { PathfindingCard } from "./components/graph/ui/PathfindingCard";
-import SettingsCard from "./components/SettingsCard";
-import NodesFilterCard from "./components/NodesFilterCard";
+import { PathfindingCard } from "./components/sideBarCards/PathfindingCard";
+import SettingsCard from "./components/sideBarCards/SettingsCard";
+import NodesFilterCard from "./components/sideBarCards/NodesFilterCard";
 import { paletteOptions } from "./constants/colorPalettes";
 import { Activity } from "react"; // فرض بر این است که این کامپوننت انیمیشن شماست
-import OutliersCard from "./components/OutliersCard";
-import { SlidersHorizontal, LineSquiggle, Settings, Workflow, RouteOff, FolderSearch } from "lucide-react";
-import SearchCaseIdsCard from "./components/SearchCaseIdsCard";
+import OutliersCard from "./components/sideBarCards/OutliersCard";
+import { SlidersHorizontal, LineSquiggle, Settings, Workflow, RouteOff, FolderSearch, Monitor } from "lucide-react";
+import SearchCaseIdsCard from "./components/sideBarCards/SearchCaseIdsCard";
 
 function App() {
   // ... (تمام استیت‌ها و لاجیک‌های قبلی بدون تغییر باقی می‌مانند)
@@ -323,7 +323,8 @@ function App() {
 
                     {!isLoadingRenderer && !graphData && (
                         <div className="flex flex-col gap-4 justify-center items-center h-full text-center">
-                            <img src="./src/assets/display-icon.svg" className="w-32 h-32 opacity-20 grayscale" alt="Empty" />
+                            {/* <img src="./src/assets/display-icon.svg" className="w-32 h-32 opacity-20 grayscale" alt="Empty" /> */}
+                            <Monitor size={150} className="opacity-20 grayscale"/>
                             <p className="text-slate-400 font-medium">لطفاً برای شروع، فایل داده را بارگذاری و فیلتر کنید.</p>
                         </div>
                     )}

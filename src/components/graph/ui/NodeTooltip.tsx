@@ -1,68 +1,83 @@
+import { useMemo } from "react";
 import { CardHeader, CardBody } from "@heroui/card";
 import { Button } from "@heroui/button";
 import { Tooltip } from "@heroui/tooltip";
-import { Chip } from "@heroui/chip"; // برای نمایش وزن زیباتر
+import { Chip } from "@heroui/chip";
 import { Accordion, AccordionItem } from "@heroui/accordion";
+import { ScrollShadow } from "@heroui/scroll-shadow";
 import { 
   X, 
   Monitor, 
-  ArrowRightFromLine, // آیکون خروجی
-  ArrowLeftToLine,    // آیکون ورودی
-  Activity
+  ArrowRightFromLine, 
+  ArrowLeftToLine, 
+  Activity,
+  Network,
+  Hash
 } from "lucide-react"; 
 import type { NodeTooltipType } from "src/types/types";
-import { useMemo } from "react";
 
-// --- کامپوننت نمایش دهنده هر ردیف یال (خارج از کامپوننت اصلی) ---
+// --- کامپوننت نمایش دهنده هر ردیف یال ---
 interface EdgeRowProps {
   item: NodeTooltipType;
   onEdgeSelect: (edgeId: string) => void;
 }
 
 const EdgeRow = ({ item, onEdgeSelect }: EdgeRowProps) => {
-  // تشخیص متن و آیکون بر اساس جهت یال
   const isIncoming = item.direction === "incoming";
   
   return (
-    <div className="flex items-center justify-between p-3 mb-2 rounded-xl border-2 border-default-300 hover:bg-default-200 transition-colors bg-content2/50">
+    <div className="group flex items-center justify-between p-3 mb-2 rounded-xl border border-slate-200 bg-white hover:border-blue-300 hover:shadow-md transition-all duration-200">
       <div className="flex items-center gap-3 overflow-hidden">
         {/* آیکون جهت دار */}
-        <div className={`p-2 rounded-full ${isIncoming ? "bg-success/10 text-success" : "bg-danger/10 text-danger"}`}>
-           {isIncoming ? <ArrowLeftToLine size={18} /> : <ArrowRightFromLine size={18} />}
+        <div className={`
+            p-2 rounded-lg shrink-0 transition-colors
+            ${isIncoming 
+                ? "bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100" 
+                : "bg-rose-50 text-rose-600 group-hover:bg-rose-100"
+            }
+        `}>
+           {isIncoming ? <ArrowLeftToLine size={16} /> : <ArrowRightFromLine size={16} />}
         </div>
 
-        <div className="flex flex-col truncate">
-          <span className="text-small text-default-500 text-right">
+        <div className="flex flex-col min-w-0">
+          <span className="text-[10px] text-slate-400 font-medium">
             {isIncoming ? "دریافت از:" : "ارسال به:"}
           </span>
-          <span className="font-semibold text-small truncate" title={item.label}>
+          <span className="text-xs font-bold text-slate-700 truncate font-vazir" title={item.label}>
             {item.label} 
-            {/* نکته: اینجا item.label همان نام نود مبدا (در ورودی) یا مقصد (در خروجی) است */}
           </span>
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 pl-1">
         {/* نمایش وزن یا تعداد */}
         {item.weight !== "N/A" && (
-          <Tooltip content="تعداد" showArrow>
-            <Chip size="sm" variant="flat" color="secondary" startContent={<Activity size={12}/>}>
+          <Chip 
+            size="sm" 
+            variant="flat" 
+            classNames={{
+                base: "bg-slate-100 border border-slate-200 h-6 px-1",
+                content: "text-[10px] font-mono font-bold text-slate-600 flex items-center gap-1"
+            }}
+          >
+            <Hash size={10} className="text-slate-400" />
             {item.weight}
           </Chip>
-          </Tooltip>
         )}
 
-        <Tooltip content="هایلایت کردن یال" showArrow>
-          <Button
-            isIconOnly
-            size="sm"
-            variant="light"
-            color="primary"
-            onPress={() => onEdgeSelect(item.edgeId)}
-          >
-            <Monitor size={18} />
-          </Button>
-        </Tooltip>
+        <div>
+            <Tooltip content="مشاهده روی گراف" showArrow color="primary" className="text-xs">
+            <Button
+                isIconOnly
+                size="sm"
+                variant="light"
+                onPress={() => onEdgeSelect(item.edgeId)}
+                className="text-slate-300 hover:text-blue-500 hover:bg-blue-50 min-w-8 w-8 h-8 rounded-lg"
+            >
+                <Monitor size={16} />
+            </Button>
+            </Tooltip>
+        </div>
       </div>
     </div>
   );
@@ -93,78 +108,86 @@ export const NodeTooltip = ({
 
   return (
     <>
-      <CardHeader className="flex justify-end gap-x-2 items-center px-4 py-3 border-b border-default-100" dir="ltr">
+      <CardHeader className="flex justify-between items-center px-4 py-3 border-b border-slate-100 bg-white/50 backdrop-blur-sm">
         <div className="flex items-center gap-2 overflow-hidden">
-            <span className="font-bold text-medium truncate">
-               {nodeTooltipTitle}
-            </span>
+            <div className="p-1.5 bg-blue-100 text-blue-600 rounded-lg shadow-sm">
+                <Activity size={18} />
+            </div>
+            <div className="flex flex-col">
+                <span className="text-[10px] text-slate-400 font-bold">فعالیت انتخاب شده</span>
+                <span className="font-bold text-sm text-slate-800 text-nowrap " title={nodeTooltipTitle || ""}>
+                    {nodeTooltipTitle}
+                </span>
+            </div>
         </div>
         <Button
           isIconOnly
-          color="danger"
           size="sm"
           variant="light"
           onPress={onClose}
-          className="min-w-8 w-8 h-8"
+          className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
         >
           <X size={18} />
         </Button>
       </CardHeader>
 
-      <CardBody className="px-2 py-2 overflow-y-auto max-h-[400px]">
+      <CardBody className="p-0 overflow-hidden bg-slate-50/50">
         {nodeTooltipData.length === 0 ? (
-          <div className="text-center py-8 text-default-400">
-            <p>هیچ یالی متصل نیست.</p>
+          <div className="flex flex-col items-center justify-center py-12 text-slate-400 gap-2 opacity-60">
+            <Network size={32} />
+            <p className="text-xs font-medium">هیچ یالی متصل نیست.</p>
           </div>
         ) : (
-          <Accordion 
-          variant="splitted"
-            selectionMode="multiple" 
-            className="shadow-none"
-            itemClasses={{
-                title: "text-small font-bold",
-                trigger: "px-2 py-2 ",
-                content: "px-2 pb-2",
-                base: 'shadow-none border-2 border-default-300 bg-default-100'
-            }}
-            
-          >
-            {/* لیست ورودی‌ها */}
-            {incomingEdges.length > 0 && (
-                <AccordionItem 
-                    key="incoming" 
-                    aria-label="Incoming Edges"
-                    title={
-                        <div className="flex items-center gap-2 text-success-600">
-                            <ArrowLeftToLine size={16}/>
-                            <span>ورودی‌ها ({incomingEdges.length})</span>
-                        </div>
-                    }
-                >
-                  {incomingEdges.map((item) => (
-                    <EdgeRow key={item.edgeId} item={item} onEdgeSelect={onEdgeSelect} />
-                  ))}
-                </AccordionItem>
-            )}
+          <ScrollShadow className="h-full max-h-[400px] p-2">
+            <Accordion 
+                selectionMode="multiple" 
+                defaultExpandedKeys={["incoming", "outgoing"]}
+                className="flex flex-col gap-2"
+                itemClasses={{
+                    base: "group bg-transparent shadow-none border-none p-0",
+                    trigger: "px-2 py-2 rounded-lg hover:bg-slate-200/50 transition-colors",
+                    title: "text-xs font-bold text-slate-600",
+                    content: "pt-2 pb-1 px-1",
+                    indicator: "text-slate-400"
+                }}
+            >
+                {/* لیست ورودی‌ها */}
+                {incomingEdges.length > 0 && (
+                    <AccordionItem 
+                        key="incoming" 
+                        aria-label="Incoming Edges"
+                        title={
+                            <div className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                                <span>ورودی‌ها ({incomingEdges.length})</span>
+                            </div>
+                        }
+                    >
+                        {incomingEdges.map((item) => (
+                        <EdgeRow key={item.edgeId} item={item} onEdgeSelect={onEdgeSelect} />
+                        ))}
+                    </AccordionItem>
+                )}
 
-            {/* لیست خروجی‌ها */}
-            {outgoingEdges.length > 0 && (
-                <AccordionItem 
-                    key="outgoing" 
-                    aria-label="Outgoing Edges"
-                    title={
-                        <div className="flex items-center gap-2 text-danger-600">
-                            <ArrowRightFromLine size={16}/>
-                            <span>خروجی‌ها ({outgoingEdges.length})</span>
-                        </div>
-                    }
-                >
-                  {outgoingEdges.map((item) => (
-                    <EdgeRow key={item.edgeId} item={item} onEdgeSelect={onEdgeSelect} />
-                  ))}
-                </AccordionItem>
-            )}
-          </Accordion>
+                {/* لیست خروجی‌ها */}
+                {outgoingEdges.length > 0 && (
+                    <AccordionItem 
+                        key="outgoing" 
+                        aria-label="Outgoing Edges"
+                        title={
+                            <div className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-rose-500" />
+                                <span>خروجی‌ها ({outgoingEdges.length})</span>
+                            </div>
+                        }
+                    >
+                        {outgoingEdges.map((item) => (
+                        <EdgeRow key={item.edgeId} item={item} onEdgeSelect={onEdgeSelect} />
+                        ))}
+                    </AccordionItem>
+                )}
+            </Accordion>
+          </ScrollShadow>
         )}
       </CardBody>
     </>

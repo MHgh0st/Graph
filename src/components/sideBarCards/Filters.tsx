@@ -5,7 +5,7 @@ import { NumberInput } from "@heroui/number-input";
 import { useState } from "react";
 import TimeFilterSection from "./TimeFilterSection";
 import { DateValue } from "@internationalized/date";
-import { FilterTypes } from "../types/types";
+import { FilterTypes } from "../../types/types";
 import { Select, SelectItem } from "@heroui/select";
 import PersianRangeDatePicker from "./RangeDatePicker";
 
@@ -107,7 +107,7 @@ export default function Filters({
             </AccordionItem>
             
             <AccordionItem title="تعداد پرونده‌ها" subtitle={<span className="text-xs text-slate-400">فیلتر بر اساس حجم</span>}>
-              <div className="space-y-3 pt-2">
+              <div className="pt-2">
                 <NumberInput
                   label="حداقل"
                   placeholder="0"
@@ -123,7 +123,7 @@ export default function Filters({
                   placeholder="∞"
                   variant="flat"
                   labelPlacement="outside"
-                  classNames={{ inputWrapper: "bg-slate-50 hover:bg-slate-100 transition-colors" }}
+                  classNames={{ inputWrapper: "bg-slate-50 hover:bg-slate-100 transition-colors mt-4" }}
                   value={caseIdRange?.max}
                   minValue={0}
                   onChange={(value) => setCaseIdRange((prev) => ({ max: Number(value), min: prev?.min }))}

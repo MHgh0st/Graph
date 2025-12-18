@@ -1,5 +1,5 @@
-import ColorPaletteCard from "./graph/ui/ColorPaletteCard";
-import { PaletteOption } from "../types/types";
+import ColorPaletteCard from './ColorPaletteCard';
+import { PaletteOption } from "../../types/types";
 import { Divider } from "@heroui/divider";
 import { PaintBucket, Sliders } from "lucide-react";
 

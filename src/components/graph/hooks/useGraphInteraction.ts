@@ -227,7 +227,7 @@ export const useGraphInteraction = (
     setSelectedPathNodes(nodeIds);
 
     setFoundPaths([outlierPath]);
-    setSelectedPathIndex(0);
+    setSelectedPathIndex(index);
   }
 
   // --- حذف توابع setupWorker و useEffect مربوطه ---

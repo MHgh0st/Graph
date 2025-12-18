@@ -1,7 +1,7 @@
-// src/components/graph/ui/EdgeTooltip.tsx (فایل جدید)
-import { X } from "lucide-react"; // یا آیکون بستن خودتون
+import { X, Network, Clock, Hash, Activity, ArrowLeftRight } from "lucide-react";
 import { CardHeader, CardBody } from "@heroui/card";
 import { Button } from "@heroui/button";
+import { Divider } from "@heroui/divider";
 
 interface EdgeTooltipProps {
   edgeTooltipTitle: string | null;
@@ -14,35 +14,68 @@ export default function EdgeTooltip({
   edgeTooltipData,
   onClose,
 }: EdgeTooltipProps) {
+  
+  // تابع کمکی برای انتخاب آیکون بر اساس لیبل
+  const getIcon = (label: string) => {
+    if (label.includes("زمان") || label.includes("Time")) return <Clock size={14} className="text-blue-500" />;
+    if (label.includes("تعداد") || label.includes("Count")) return <Hash size={14} className="text-amber-500" />;
+    return <Activity size={14} className="text-slate-400" />;
+  };
+
   return (
     <>
-      <CardHeader className="text-lg font-bold flex gap-x-2">
+      <CardHeader className="flex items-center justify-between py-3 px-4 bg-slate-50/50 border-b border-slate-100">
+        <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-blue-100 text-blue-600 rounded-lg shadow-sm">
+                <Network size={18} />
+            </div>
+            <div className="flex flex-col">
+                <span className="text-sm font-bold text-slate-800">جزئیات ارتباط (یال)</span>
+                <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                    {edgeTooltipTitle || "مسیر بین دو فعالیت"}
+                </span>
+            </div>
+        </div>
+        
         <Button
           isIconOnly
-          color="danger"
           size="sm"
-          variant="flat"
+          variant="light"
           onPress={onClose}
+          className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
         >
           <X size={20} />
         </Button>
-        {edgeTooltipTitle || "جزئیات یال"}
       </CardHeader>
-      <CardBody>
-        <div className="flex justify-between px-4">
+
+      <CardBody className="p-0 overflow-hidden">
+        <div className="flex items-center justify-around w-full py-4 px-2 bg-white">
           {edgeTooltipData.map((item, index) => (
-          // <li key={index} className="flex justify-between text-xs">
-          //   <span className="text-gray-600">{item.label}:</span>
-          //   <span className="font-medium">{item.value}</span>
-          // </li>
-          <div className="flex flex-col gap-y-1 items-center text-sm">
-            <span className="text-gray-600">{item.label}:</span>
-            <span className="font-medium">{item.value}</span>
-          </div>
-        ))}
+            <div key={index} className="flex items-center flex-1 justify-center relative group">
+              {/* جداکننده بین آیتم‌ها (به جز اولی) */}
+              {index > 0 && (
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 h-8 w-px bg-slate-100 group-first:hidden" />
+              )}
+
+              <div className="flex flex-col items-center gap-1.5 px-4 transition-transform duration-200 hover:scale-105 cursor-default">
+                <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1.5 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100">
+                  {getIcon(item.label)}
+                  {item.label}
+                </span>
+                <span className="text-sm font-bold text-slate-700 font-mono tracking-tight">
+                  {item.value}
+                </span>
+              </div>
+            </div>
+          ))}
+          
+          {edgeTooltipData.length === 0 && (
+              <div className="text-center w-full text-slate-400 text-xs py-2">
+                  اطلاعاتی برای نمایش وجود ندارد
+              </div>
+          )}
         </div>
       </CardBody>
     </>
-  
   );
 }

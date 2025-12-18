@@ -1,13 +1,13 @@
-// PersianRangeDatePicker.tsx
 import React, { useState, useEffect, useMemo } from "react";
 import { Button } from "@heroui/button";
 import { Popover, PopoverTrigger, PopoverContent } from "@heroui/popover";
 import { Select, SelectItem } from "@heroui/select";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import moment from "moment-jalaali";
 import { CalendarDate } from "@internationalized/date";
 import type { DateValue } from "@internationalized/date";
 import { cn } from "@heroui/theme";
+import { Calendar as CalendarIcon, X, ChevronLeft, CalendarDays } from "lucide-react";
 
 // تنظیمات مومنت
 moment.loadPersian({ dialect: "persian-modern", usePersianDigits: false });
@@ -172,82 +172,99 @@ const SinglePersianDatePicker: React.FC<SinglePersianDatePickerProps> = ({
   };
 
   return (
-    <div className="w-full">
-      <label className="text-xs font-medium text-default-500 mb-1 block mr-1">
-        {label} {isRequired && <span className="text-danger">*</span>}
+    <div className="w-full group">
+      <label className="text-xs font-bold text-slate-500 mb-1.5 flex items-center gap-1">
+        {label} {isRequired && <span className="text-rose-500">*</span>}
       </label>
-      <Popover isOpen={isOpen} onOpenChange={setIsOpen} placement="bottom" offset={4}>
+      <Popover isOpen={isOpen} onOpenChange={setIsOpen} placement="bottom" offset={8}>
         <PopoverTrigger>
           <Button
-            variant="bordered"
+            variant="flat"
             className={cn(
-              "w-full justify-between bg-default-50 border-default-200 h-12 text-medium",
-              !value && "text-default-400",
-              isDisabled && "opacity-50 cursor-not-allowed",
-              isInvalid && "border-danger text-danger"
+              "w-full justify-between bg-white border border-slate-200 h-11 text-sm rounded-xl transition-all duration-200",
+              "hover:border-blue-300 hover:bg-slate-50",
+              "data-[focus=true]:border-blue-500 data-[focus=true]:ring-1 data-[focus=true]:ring-blue-200", // استایل فوکوس
+              !value && "text-slate-400 font-normal",
+              value && "text-slate-800 font-medium",
+              isDisabled && "opacity-50 cursor-not-allowed bg-slate-100",
+              isInvalid && "border-rose-300 text-rose-600 bg-rose-50 hover:bg-rose-100"
             )}
             isDisabled={isDisabled}
+            startContent={<CalendarIcon size={16} className={cn(
+                "transition-colors",
+                value ? "text-blue-500" : "text-slate-300",
+                isInvalid && "text-rose-400"
+            )} />}
             endContent={
-              value ? (
-                <span 
-                  className="text-default-400 hover:text-danger cursor-pointer p-1 z-50"
+              value && !isDisabled ? (
+                <div 
+                  className="p-1 rounded-full hover:bg-slate-200 text-slate-400 hover:text-rose-500 cursor-pointer transition-colors z-50"
                   onClick={(e) => {
                     e.stopPropagation();
-                    e.preventDefault(); 
                     onChange(null);
                   }}
                   onPointerDown={(e) => e.stopPropagation()}
                 >
-                  ✕
-                </span>
-              ) : (
-                <svg className="w-5 h-5 text-default-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              )
+                  <X size={14} />
+                </div>
+              ) : null
             }
           >
             {value ? formatPersianDate(value) : placeholder}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="p-0 w-[300px]">
+        <PopoverContent className="p-0 w-[300px] border border-slate-100 shadow-xl rounded-2xl overflow-hidden bg-white">
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
+            initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="p-3"
+            exit={{ opacity: 0, scale: 0.98 }}
+            transition={{ duration: 0.15 }}
+            className="p-4"
           >
-            <div className="flex gap-2 mb-3 justify-center">
+            {/* هدر تقویم (انتخاب سال و ماه) */}
+            <div className="flex gap-2 mb-4 justify-between bg-slate-50 p-1 rounded-xl border border-slate-100">
               <Select
                 size="sm"
-                className="w-28"
+                variant="flat"
+                className="w-1/2"
+                classNames={{ 
+                    trigger: "bg-white shadow-sm min-h-8 h-8 rounded-lg",
+                    value: "text-xs font-bold text-slate-700"
+                }}
                 selectedKeys={[String(moment(viewDate).jMonth())]}
                 onChange={(e) => handleMonthChange(new Set([e.target.value]))}
                 aria-label="ماه"
                 disallowEmptySelection
               >
-                {months.map((m) => <SelectItem key={m.value}>{m.label}</SelectItem>)}
+                {months.map((m) => <SelectItem key={m.value} textValue={m.label}>{m.label}</SelectItem>)}
               </Select>
               <Select
                 size="sm"
-                className="w-24"
+                variant="flat"
+                className="w-1/2"
+                classNames={{ 
+                    trigger: "bg-white shadow-sm min-h-8 h-8 rounded-lg",
+                    value: "text-xs font-bold text-slate-700"
+                }}
                 selectedKeys={[String(moment(viewDate).jYear())]}
                 onChange={(e) => handleYearChange(new Set([e.target.value]))}
                 aria-label="سال"
                 disallowEmptySelection
               >
-                {years.map((y) => <SelectItem key={y.value}>{y.label}</SelectItem>)}
+                {years.map((y) => <SelectItem key={y.value} textValue={y.label}>{y.label}</SelectItem>)}
               </Select>
             </div>
 
+            {/* روزهای هفته */}
             <div className="grid grid-cols-7 mb-2">
               {PERSIAN_DAYS.map((d, i) => (
-                <span key={i} className="text-center text-xs font-bold text-default-400">
+                <span key={i} className="text-center text-[11px] font-bold text-slate-400">
                   {d}
                 </span>
               ))}
             </div>
 
+            {/* شبکه روزها */}
             <div className="grid grid-cols-7 gap-1">
               {calendarDays.map((date, idx) => {
                 const isCurrentMonth = moment(date).jMonth() === moment(viewDate).jMonth();
@@ -262,13 +279,18 @@ const SinglePersianDatePicker: React.FC<SinglePersianDatePickerProps> = ({
                     disabled={disabled}
                     onClick={() => handleDateSelect(date)}
                     className={cn(
-                      "h-9 w-9 text-sm rounded-lg flex items-center justify-center transition-all relative",
-                      !isCurrentMonth ? "text-default-300" : "text-default-700",
+                      "h-8 w-8 text-xs rounded-lg flex items-center justify-center transition-all relative font-medium font-vazir",
+                      // حالت پیش‌فرض و غیرفعال
+                      !isCurrentMonth ? "text-slate-300" : "text-slate-600",
                       disabled 
-                        ? "opacity-30 cursor-not-allowed bg-default-50" 
-                        : "hover:bg-default-200 hover:scale-105 active:scale-95",
-                      selected && "bg-primary text-primary-foreground font-bold shadow-md hover:bg-primary-600",
-                      isToday && !selected && "ring-2 ring-primary ring-inset text-primary"
+                        ? "opacity-20 cursor-not-allowed bg-slate-50" 
+                        : "hover:bg-blue-50 hover:text-blue-600",
+                      
+                      // حالت امروز
+                      isToday && !selected && "ring-1 ring-blue-400 text-blue-600 bg-blue-50/50",
+                      
+                      // حالت انتخاب شده (باید بالاترین اولویت باشد)
+                      selected && "bg-blue-500 text-white shadow-md shadow-blue-200 hover:bg-blue-600 ring-0",
                     )}
                   >
                     {moment(date).jDate()}
@@ -327,15 +349,13 @@ const PersianRangeDatePicker: React.FC<PersianRangeDatePickerProps> = ({
     onChange?.(newRange);
   };
 
-  // هندلر برای اعمال شورتکات‌ها
   const handlePresetClick = (days: number) => {
     const today = new Date();
-    // محاسبه تاریخ شروع: امروز منهای X روز
     const startDate = moment().subtract(days, "days").toDate();
     
     const newRange = {
       start: dateToDateValue(startDate),
-      end: dateToDateValue(today) // تاریخ پایان همون "امروز" تنظیم میشه
+      end: dateToDateValue(today)
     };
 
     setRange(newRange);
@@ -351,68 +371,85 @@ const PersianRangeDatePicker: React.FC<PersianRangeDatePickerProps> = ({
   return (
     <div className={cn("flex flex-col gap-4 w-full", className)} dir="rtl">
       {/* بخش میانبرها (Shortcuts) */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <span className="text-xs text-default-500 ml-1">میانبرها:</span>
+      <div className="flex flex-wrap items-center gap-2 p-1.5 bg-slate-50/80 border border-slate-100 rounded-xl">
+        <div className="flex items-center gap-1.5 pl-2 border-l border-slate-200 ml-1">
+            <CalendarDays size={14} className="text-slate-400" />
+            <span className="text-[10px] font-bold text-slate-500">فیلتر سریع:</span>
+        </div>
+        
         {PRESETS.map((preset) => (
-          <Button
+          <button
             key={preset.days}
-            size="sm"
-            variant="flat"
-            className="h-7 text-xs px-3 bg-default-100 hover:bg-default-200 text-default-600"
-            onPress={() => handlePresetClick(preset.days)}
+            type="button"
+            onClick={() => handlePresetClick(preset.days)}
+            className="
+                px-2.5 py-1 text-[10px] font-medium rounded-lg transition-colors
+                bg-white border border-slate-200 text-slate-600
+                hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200
+                active:scale-95
+            "
           >
             {preset.label}
-          </Button>
+          </button>
         ))}
+
         {/* دکمه پاک کردن کل بازه */}
         {(range.start || range.end) && (
-          <Button
-            size="sm"
-            variant="flat"
-            color="danger"
-            className="h-7 text-xs px-2 mr-auto"
-            onPress={handleClear}
+          <button
+            type="button"
+            onClick={handleClear}
+            className="
+                mr-auto px-2 py-1 text-[10px] font-medium rounded-lg transition-colors flex items-center gap-1
+                bg-rose-50 border border-rose-100 text-rose-500
+                hover:bg-rose-100 hover:border-rose-200
+            "
           >
-            پاک کردن همه
-          </Button>
+            <X size={12} />
+            حذف فیلتر
+          </button>
         )}
       </div>
 
       {/* بخش اینپوت‌ها */}
-      <div className="flex flex-col sm:flex-row gap-4 w-full">
-        <div className="flex-1">
-          <SinglePersianDatePicker
-            label="تاریخ شروع"
-            value={range.start}
-            onChange={handleStartChange}
-            placeholder={placeholder?.start || "از تاریخ..."}
-            maxDate={range.end}
-            isRequired={isRequired}
-            isInvalid={isInvalid}
-          />
+      <div className="flex flex-col gap-2 relative">
+        {/* خط اتصال بین دو اینپوت (فقط برای زیبایی در دسکتاپ) */}
+        <div className="hidden sm:block absolute left-1/2 top-[60%] -translate-x-1/2 -translate-y-1/2 z-0 text-slate-300">
+            <ChevronLeft size={16} />
         </div>
-        
-        {/* <div className="hidden sm:flex items-center justify-center pt-6 text-default-300 text-xs">
-          <svg className="w-5 h-5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-          </svg>
-        </div> */}
 
-        <div className="flex-1">
-          <SinglePersianDatePicker
-            label="تاریخ پایان"
-            value={range.end}
-            onChange={handleEndChange}
-            minDate={range.start}
-            isDisabled={!range.start}
-            placeholder={placeholder?.end || "تا تاریخ..."}
-            isRequired={isRequired}
-            isInvalid={isInvalid}
-          />
+        <div className="flex flex-col sm:flex-row gap-4 w-full z-10">
+            <div className="flex-1">
+            <SinglePersianDatePicker
+                label="از تاریخ"
+                value={range.start}
+                onChange={handleStartChange}
+                placeholder={placeholder?.start || "شروع بازه..."}
+                maxDate={range.end}
+                isRequired={isRequired}
+                isInvalid={isInvalid}
+            />
+            </div>
+
+            <div className="flex-1">
+            <SinglePersianDatePicker
+                label="تا تاریخ"
+                value={range.end}
+                onChange={handleEndChange}
+                minDate={range.start}
+                isDisabled={!range.start}
+                placeholder={placeholder?.end || "پایان بازه..."}
+                isRequired={isRequired}
+                isInvalid={isInvalid}
+            />
+            </div>
         </div>
       </div>
+
       {isInvalid && errorMessage && (
-        <div className="text-tiny text-danger">{errorMessage}</div>
+        <div className="text-[10px] font-medium text-rose-500 bg-rose-50 p-2 rounded-lg flex items-center gap-2">
+            <span className="w-1 h-1 rounded-full bg-rose-500" />
+            {errorMessage}
+        </div>
       )}
     </div>
   );

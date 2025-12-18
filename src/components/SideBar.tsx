@@ -38,7 +38,7 @@ export default function SideBar({
         onClick={() => onClickTab(name)}
         className={`
           group relative w-full flex flex-col items-center justify-center gap-2 py-3 px-2 rounded-2xl transition-all duration-300 ease-out
-          border
+          border cursor-pointer
           ${
             isActive
               ? "bg-blue-50/80 border-blue-200 shadow-[0_4px_12px_-4px_rgba(59,130,246,0.2)]"
@@ -115,10 +115,11 @@ export default function SideBar({
     <aside
       className={`
         ${className} 
-        h-screen flex flex-col gap-y-3 px-3 py-4
+        h-full flex flex-col gap-y-3 px-3 py-4
         bg-white/80 backdrop-blur-xl border-l border-slate-200/80
         shadow-[-4px_0_20px_-10px_rgba(0,0,0,0.05)]
         overflow-y-auto scrollbar-hide
+        
       `}
     >
       {/* لوگو یا هدر کوچک تزئینی */}
