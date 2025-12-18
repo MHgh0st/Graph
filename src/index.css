@@ -11,3 +11,35 @@
 * {
   font-family: Vazir, sans-serif;
 }
+
+
+.is-interacting .react-flow__edge {
+  /* گزینه ۱ (سریع‌ترین): مخفی کردن کامل */
+  opacity: 0 !important;
+  transition: none !important;
+  
+  /* گزینه ۲ (زیباتر): کمرنگ کردن (اگر گزینه ۱ زیادی خالی شد، این را تست کنید) */
+  /* opacity: 0.1 !important; */
+}
+
+/* مخفی کردن لیبل‌های یال‌ها هنگام حرکت */
+.is-interacting .react-flow__edge-text,
+.is-interacting .react-flow__edge-text-bg {
+  display: none !important;
+}
+
+/* حذف سایه نودها هنگام حرکت (سایه‌ها در رندر بسیار سنگین هستند) */
+.is-interacting .react-flow__node {
+  box-shadow: none !important;
+  /* در صورت نیاز می‌توانید بوردر را هم ساده کنید */
+  /* border-color: #ccc !important; */
+}
+
+/* جلوگیری از انتخاب متن هنگام درگ کردن */
+.is-interacting {
+  pointer-events: none; /* این باعث می‌شود رویدادهای موس روی گراف نادیده گرفته شوند تا سرعت بیشتر شود */
+}
+/* اما باید اجازه دهیم کانتینر همچنان ایونت‌ها را بگیرد، پس ریست می‌کنیم: */
+.is-interacting .react-flow__pane {
+  pointer-events: all !important;
+}

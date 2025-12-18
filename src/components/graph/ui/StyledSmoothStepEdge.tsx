@@ -3,96 +3,43 @@ import {
   BaseEdge,
   EdgeLabelRenderer,
   type EdgeProps,
-  Position,
 } from "@xyflow/react";
 import type { CSSProperties } from "react";
 
-// این اینترفیس از قبل وجود داشت
-interface TooltipData {
-  Source_Activity: string;
-  Target_Activity: string;
-  Weight_Value: number;
-  Tooltip_Mean_Time: string;
-  Tooltip_Total_Time: string;
-}
-
-// کامپوننت CustomEdgeLabel (بدون تغییر)
+// کامپوننت لیبل (همان کدی که قبلاً اصلاح کردیم و درست بود)
 const CustomEdgeLabel = ({
   text,
   style,
-  className,
 }: {
   text: string;
   style?: CSSProperties;
-  className?: string;
 }) => (
   <div
     style={{
-      background: "white",
-      padding: "2px 6px",
-      borderRadius: "4px",
-      fontSize: "8px",
-      fontWeight: "bold",
-      color: "#000",
-      border: "1px solid #ccc",
-      whiteSpace: "nowrap",
-      fontFamily: "Vazir, Tahoma, sans-serif",
-      width: "max-content",
       ...style,
+      pointerEvents: "all",
+      position: "absolute",
     }}
-    className={className}
+    className="nodrag nopan flex items-center justify-center hover:z-50 z-10 hover:z-[1000]"
   >
-    {text}
+    <div 
+      className="
+        px-2 py-1 
+        bg-zinc-900/90 backdrop-blur-sm 
+        border border-zinc-700/50 
+        text-zinc-300 text-[10px] 
+        rounded-lg shadow-lg 
+        font-mono tracking-tighter 
+        cursor-pointer 
+        transition-transform duration-200 ease-out
+        hover:scale-125 hover:bg-zinc-800 hover:text-white hover:border-zinc-500
+      "
+    >
+      {text}
+    </div>
   </div>
 );
 
-// کامپوننت EdgeTooltip (بدون تغییر)
-const EdgeTooltip = ({
-  data,
-  style,
-}: {
-  data: TooltipData;
-  style?: CSSProperties;
-}) => {
-  return (
-    <div
-      dir="rtl"
-      style={{
-        position: "absolute",
-        background: "rgba(0, 0, 0, 0.8)",
-        color: "white",
-        padding: "8px 12px",
-        borderRadius: "6px",
-        fontSize: "12px",
-        fontFamily: "Vazir, Tahoma, sans-serif",
-        width: "max-content",
-        zIndex: 100,
-        boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-        ...style,
-      }}
-      className="nodrag nopan"
-    >
-      <div>
-        <strong>از :</strong> {data.Source_Activity}
-      </div>
-      <div>
-        <strong>تا :</strong> {data.Target_Activity}
-      </div>
-      <hr style={{ margin: "4px 0", borderColor: "rgba(255,255,255,0.3)" }} />
-      <div>
-        <strong>تعداد : </strong> {data.Weight_Value}
-      </div>
-      <div>
-        <strong>میانگین زمان:</strong> {data.Tooltip_Mean_Time}
-      </div>
-      <div>
-        <strong>زمان کل:</strong> {data.Tooltip_Total_Time}
-      </div>
-    </div>
-  );
-};
-
-// کامپوننت اصلی StyledSmoothStepEdge (اصلاح شده برای حلقه)
 export const StyledSmoothStepEdge = (props: EdgeProps) => {
   const {
     id,
@@ -103,10 +50,12 @@ export const StyledSmoothStepEdge = (props: EdgeProps) => {
     target,
     sourceX,
     sourceY,
+    targetX,
+    targetY,
     markerEnd,
   } = props;
 
-  const { onEdgeSelect, isTooltipVisible } = data || {};
+  const { onEdgeSelect } = data || {};
   const isSelfLoop = source === target;
 
   let edgePath: string;
@@ -114,41 +63,49 @@ export const StyledSmoothStepEdge = (props: EdgeProps) => {
   let labelY: number;
 
   if (isSelfLoop) {
-    // ابعاد و مرکز نود را از data بدهید تا مسیر همیشه بیرون بدنه بماند
-    const nodeW = (data as any)?.nodeWidth ?? 230;
-    const nodeH = (data as any)?.nodeHeight ?? 100;
-    const cx = (data as any)?.nodeCenterX ?? sourceX;
-    const cy = (data as any)?.nodeCenterY ?? sourceY;
+    // --- 🔄 منطق رسم حلقه (Self Loop) ---
+    
+    // ۱. تنظیم ابعاد حلقه
+    const loopHeight = 60; // ارتفاع حلقه از بالای گره
+    const loopWidthOffset = 30; // فاصله افقی از لبه‌ها
+    const cornerRadius = 10; // شعاع گردی گوشه‌ها
 
-    // فاصلهٔ حلقه از بدنه و طول پله‌ها
-    const margin = (data as any)?.loopMargin ?? 24;
-    const offsetDown = (data as any)?.loopDown ?? 12;
-    const offsetUp = (data as any)?.loopUp ?? 12;
+    // ۲. محاسبه نقاط کلیدی
+    // فرض بر این است که در گراف چپ-به-راست، سورس سمت راست و تارگت سمت چپ نود است
+    // اما برای اطمینان، ما یک حلقه U شکل بالای نود می‌سازیم
+    
+    // شروع از هندل خروجی (معمولا راست)
+    const sX = sourceX;
+    const sY = sourceY;
+    // پایان به هندل ورودی (معمولا چپ)
+    const tX = targetX;
+    const tY = targetY;
 
-    // خروجی از پایین، ورودی از بالا
-    const sx = cx; // خروج از پایین
-    const sy = cy + nodeH / 2 - 50;
-    const tx = cx; // ورود از بالا
-    const ty = cy - nodeH / 2;
+    // بالاترین نقطه Y (چون در SVG محور Y به سمت پایین زیاد می‌شود، باید کم کنیم)
+    // اینجا فرض می‌کنیم نود حدود ۵۰ پیکسل ارتفاع دارد، پس از وسط نود بالا می‌رویم
+    const topY = Math.min(sY, tY) - loopHeight;
 
-    // مسیرِ دور زدن از سمت چپ
-    const leftX = cx - (nodeW / 2 + margin);
+    // ۳. ساخت مسیر (Path)
+    // حرکت: راست -> بالا -> چپ (تا بالای تارگت) -> پایین
+    edgePath = `
+      M ${sX} ${sY}
+      L ${sX + loopWidthOffset} ${sY}
+      Q ${sX + loopWidthOffset + cornerRadius} ${sY} ${sX + loopWidthOffset + cornerRadius} ${sY - cornerRadius}
+      L ${sX + loopWidthOffset + cornerRadius} ${topY + cornerRadius}
+      Q ${sX + loopWidthOffset + cornerRadius} ${topY} ${sX + loopWidthOffset} ${topY}
+      L ${tX - loopWidthOffset} ${topY}
+      Q ${tX - loopWidthOffset - cornerRadius} ${topY} ${tX - loopWidthOffset - cornerRadius} ${topY + cornerRadius}
+      L ${tX - loopWidthOffset - cornerRadius} ${tY - cornerRadius}
+      Q ${tX - loopWidthOffset - cornerRadius} ${tY} ${tX - loopWidthOffset} ${tY}
+      L ${tX} ${tY}
+    `;
 
-    // نسخهٔ ساده با گوشه‌های تیز (می‌توانید بعداً Q/C اضافه کنید)
-    edgePath = [
-      `M ${sx},${sy}`, // شروع: پایین نود
-      `L ${sx},${sy + offsetDown}`, // کمی پایین
-      `L ${leftX},${sy + offsetDown}`, // به چپ
-      `L ${leftX},${ty - offsetUp}`, // بالا
-      `L ${tx},${ty - offsetUp}`, // به راست، نزدیک ورودی
-      `L ${tx},${ty}`, // ورود از بالا
-    ].join(" ");
-
-    // جای لیبل: وسطِ مسیرِ سمت چپ
-    labelX = leftX - 6;
-    labelY = cy;
+    // ۴. محاسبه مکان لیبل (وسط خط بالای حلقه)
+    labelX = (sX + tX) / 2;
+    labelY = topY;
+    
   } else {
-    // منطق برای یال‌های عادی (مثل قبل)
+    // --- ➡️ منطق یال‌های معمولی ---
     const [path, lx, ly] = getSmoothStepPath(props);
     edgePath = path;
     labelX = lx;
@@ -163,29 +120,33 @@ export const StyledSmoothStepEdge = (props: EdgeProps) => {
 
   return (
     <>
-      <g onClick={handleClick} style={{ cursor: "pointer" }}>
-        <BaseEdge
-          path={edgePath}
-          markerEnd={markerEnd}
-          style={{
-            ...style,
-            stroke: style?.stroke || "#3b82f6",
-            strokeWidth: style?.strokeWidth || 2,
-            strokeOpacity: style?.strokeOpacity ?? 1,
-            fill: "none", // مهم: مطمئن شوید داخل مسیر رنگی نمی‌شود
-          }}
-        />
-      </g>
+      {/* ناحیه نامرئی برای کلیک راحت‌تر (Hit Area) */}
+      <BaseEdge
+        path={edgePath}
+        style={{ strokeWidth: 20, stroke: "transparent", cursor: "pointer", fill: "none" }}
+        onClick={handleClick}
+      />
+      
+      {/* خط اصلی */}
+      <BaseEdge
+        path={edgePath}
+        markerEnd={markerEnd}
+        style={{
+          ...style,
+          stroke: style?.stroke || "#52525b",
+          strokeWidth: style?.strokeWidth || 1.5,
+          fill: "none", // بسیار مهم: داخل حلقه رنگ نشود
+        }}
+      />
+      
+      {/* لیبل */}
       {label && (
         <EdgeLabelRenderer>
           <CustomEdgeLabel
             text={label as string}
             style={{
               transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
-              pointerEvents: "all",
-              position: "absolute",
             }}
-            className="nodrag nopan"
           />
         </EdgeLabelRenderer>
       )}

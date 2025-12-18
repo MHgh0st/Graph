@@ -22,6 +22,7 @@ export interface ExtendedPath extends Path {
   _endIndex?: number; // ایندکس گره پایان در مسیر کامل
   _pathType?: "absolute" | "relative";
   _variantTimings?: number[];
+  _specificEdgeDurations?: Record<string, number>;
 }
 
 export interface PaletteOption {
@@ -30,7 +31,7 @@ export interface PaletteOption {
   gradient: string;
 }
 
-export type SidebarTab = "Filter" | "Routing" | "Settings" | "Nodes" | "Outliers";
+export type SidebarTab = "Filter" | "Routing" | "Settings" | "Nodes" | "Outliers" | "SearchCaseIds";
 
 export interface GraphData {
   Source_Activity: string;
@@ -54,6 +55,16 @@ export interface ProcessMiningData {
   outliers: Variant[];
   startActivities: string[];
   endActivities: string[];
+}
+
+export interface SearchCaseIdsData{
+  found: boolean;
+  data?: {
+    nodes: string[];
+    edge_durations: number[];
+    total_duration: number;
+    case_id: number
+  }
 }
 
 export interface NodeTooltipType{

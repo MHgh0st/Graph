@@ -1,6 +1,8 @@
 import ColorPaletteCard from "./graph/ui/ColorPaletteCard";
 import { PaletteOption } from "../types/types";
 import { Divider } from "@heroui/divider";
+import { PaintBucket, Sliders } from "lucide-react";
+
 interface Props {
   ColorPaletteProps: {
     options: PaletteOption[];
@@ -13,16 +15,43 @@ interface Props {
 
 export default function SettingsCard({ ColorPaletteProps, className }: Props) {
   return (
-    <div className={`flex flex-col gap-y-2 ${className}`}>
-      <p className="text-lg font-semibold">انتخاب طیف رنگی</p>
-      <ColorPaletteCard
-        options={ColorPaletteProps.options}
-        value={ColorPaletteProps.value}
-        onChange={ColorPaletteProps.onChange}
-        className={ColorPaletteProps.className}
-      />
+    <div className={`flex flex-col gap-y-6 h-full ${className}`}>
+        
+      {/* بخش انتخاب رنگ */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2 px-1">
+            <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
+                <PaintBucket size={20} />
+            </div>
+            <div>
+                <h3 className="text-sm font-bold text-slate-800">طیف رنگی نمودار</h3>
+                <p className="text-xs text-slate-500">رنگ‌بندی یال‌ها و گره‌ها را تغییر دهید</p>
+            </div>
+        </div>
 
-      <Divider className="my-4" />
+        <ColorPaletteCard
+          options={ColorPaletteProps.options}
+          value={ColorPaletteProps.value}
+          onChange={ColorPaletteProps.onChange}
+          className={ColorPaletteProps.className}
+        />
+      </section>
+
+      <Divider className="bg-slate-100" />
+
+      {/* اینجا می‌توانید تنظیمات آینده را اضافه کنید */}
+      {/* <section className="space-y-4 opacity-50 grayscale select-none pointer-events-none">
+         <div className="flex items-center gap-2 px-1">
+            <div className="p-2 bg-orange-50 text-orange-600 rounded-lg">
+                <Sliders size={20} />
+            </div>
+            <div>
+                <h3 className="text-sm font-bold text-slate-800">تنظیمات پیشرفته</h3>
+                <p className="text-xs text-slate-500">ضخامت خطوط و اندازه فونت‌ها</p>
+            </div>
+         </div>
+      </section> */}
+
     </div>
   );
 }

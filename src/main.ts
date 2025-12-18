@@ -14,6 +14,13 @@ declare global {
         filters: FilterTypes
       ) => Promise<any>;
       openFileDialog: () => Promise<any>;
+      searchCase: (
+        caseId: number, 
+        filePath: string, 
+        format: "csv" | "pkl" | "parquet", 
+        startDate?: string, 
+        endDate?: string
+      ) => Promise<any>;
     };
   }
 }
@@ -22,6 +29,12 @@ declare global {
 if (started) {
   app.quit();
 }
+const getPythonPath = () => {
+  if (app.isPackaged) {
+    return join(process.resourcesPath, "processor.exe");
+  }
+  return join(app.getAppPath(), "resources", "processor.exe");
+};
 
 const createWindow = () => {
   const primaryDisplay = screen.getPrimaryDisplay();
@@ -185,6 +198,70 @@ ipcMain.handle(
     return outputPath;
   }
 );
+
+ipcMain.handle('search-case', async (event, caseId, filePath, format, startDate, endDate) => {
+  return new Promise((resolve, reject) => {
+    // 1. دریافت مسیر صحیح فایل اجرایی
+    const pythonPath = getPythonPath();
+
+    const args = [
+      '--input-path', filePath,
+      '--format', format,
+      '--search-case-id', caseId
+    ];
+
+    if (startDate) {
+      args.push('--start-date', startDate);
+    }
+    if (endDate) {
+      args.push('--end-date', endDate);
+    }
+
+    console.log("args: ", args);
+
+    // 2. اجرای پروسه با تنظیمات انکدینگ (حیاتی برای زبان فارسی)
+    const pythonProcess = spawn(pythonPath, args, {
+      env: {
+        ...process.env,
+        PYTHONUTF8: "1",
+        PYTHONIOENCODING: "utf-8:replace",
+      },
+    });
+
+    let dataString = '';
+    let errorString = '';
+    
+    pythonProcess.stdout.setEncoding("utf8");
+    pythonProcess.stderr.setEncoding("utf8");
+
+    pythonProcess.stdout.on('data', (data) => {
+      dataString += data.toString();
+    });
+
+    // 3. دریافت خطاهای احتمالی پایتون
+    pythonProcess.stderr.on('data', (data) => {
+      errorString += data.toString();
+    });
+
+    pythonProcess.on('close', (code) => {
+      if (code !== 0) {
+        console.error("Search Python Error:", errorString);
+        return reject(new Error(`Search script failed: ${errorString}`));
+      }
+
+      try {
+        const json = JSON.parse(dataString);
+        resolve(json);
+      } catch (e) {
+        reject(`Error parsing search result: ${e.message}`);
+      }
+    });
+
+    pythonProcess.on("error", (err) => {
+        reject(new Error(`Failed to spawn search process: ${err.message}`));
+    });
+  });
+});
 
 // Handle file dialog requests from the renderer process
 ipcMain.handle("open-file-dialog", async () => {

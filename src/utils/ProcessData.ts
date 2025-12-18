@@ -2,8 +2,10 @@ import { type FilterTypes } from "../types/types";
 
 export default async function ProcessData(
   filePath: string,
-  filters: FilterTypes
+  filters: FilterTypes,
+  caseID?: number
 ) {
+  console.log("Electron API Object:", window.electronAPI);
   const fileExtension = filePath.split(".").pop().toLowerCase();
   const formatType =
     fileExtension === "csv"
@@ -19,11 +21,24 @@ export default async function ProcessData(
       formatType === "pkl" ||
       formatType === "parquet"
     ) {
-      const jsonData = window.electronAPI.processData(
+      let jsonData;
+      if(caseID){
+        jsonData = await window.electronAPI.searchCase(
+        caseID, 
+        filePath, 
+        formatType,
+        filters.dateRange.start,
+        filters.dateRange.end
+      );
+      }
+      else{
+        jsonData = await window.electronAPI.processData(
         formatType,
         filePath,
         filters
       );
+      
+      }
       return jsonData;
     }
     throw Error("فرمت فایل نا معتبر است");

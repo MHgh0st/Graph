@@ -22,9 +22,13 @@ import { PathfindingCard } from "./components/graph/ui/PathfindingCard";
 import SettingsCard from "./components/SettingsCard";
 import NodesFilterCard from "./components/NodesFilterCard";
 import { paletteOptions } from "./constants/colorPalettes";
-import { Activity } from "react";
+import { Activity } from "react"; // فرض بر این است که این کامپوننت انیمیشن شماست
 import OutliersCard from "./components/OutliersCard";
+import { SlidersHorizontal, LineSquiggle, Settings, Workflow, RouteOff, FolderSearch } from "lucide-react";
+import SearchCaseIdsCard from "./components/SearchCaseIdsCard";
+
 function App() {
+  // ... (تمام استیت‌ها و لاجیک‌های قبلی بدون تغییر باقی می‌مانند)
   const [dataFilePath, setDataFilePath] = useState<string | null>(null);
   const [isLoadingRenderer, setIsLoadingRenderer] = useState<boolean>(false);
   const [step, setStep] = useState<number>(1);
@@ -43,7 +47,7 @@ function App() {
   const [selectedNodeIds, setSelectedNodeIds] = useState<Set<string>>(
     new Set()
   );
-  // --- Lifted State for Pathfinding ---
+  
   const [selectedPathNodes, setSelectedPathNodes] = useState<Set<string>>(
     new Set()
   );
@@ -54,11 +58,8 @@ function App() {
     null
   );
 
+  const [filters, setFilters] = useState<FilterTypes>();
 
-
-  // --- Logic for filtering layout ---
-  // If a path is selected (index !== null), we filter ONLY that path's nodes/edges.
-  // Otherwise, we use the standard selectedNodeIds filter.
   const layoutFilters = {
     nodes: selectedPathIndex !== null ? selectedPathNodes : selectedNodeIds,
     edges: selectedPathIndex !== null ? selectedPathEdges : null,
@@ -75,6 +76,7 @@ function App() {
     setLayoutedNodes,
     setLayoutedEdges,
   } = useGraphLayout(graphData, selectedColorPalette, startEndNodes, layoutFilters.nodes, layoutFilters.edges);
+  
   const {
     activeTooltipEdgeId,
     isEdgeCardVisible,
@@ -115,13 +117,16 @@ function App() {
     setSelectedPathIndex,
     selectedNodeIds,
   );
+
   const submit = async (filters?: FilterTypes) => {
     switch (step) {
       case 1:
         setStep(2);
+        
         break;
       case 2: {
         setIsLoadingRenderer(true);
+        setFilters(filters);
         const data = (await ProcessData(
           dataFilePath,
           filters
@@ -141,9 +146,8 @@ function App() {
   };
 
   useEffect(()=>{
-    console.log('outliers: ', outliers)
+    // console.log('outliers: ', outliers)
   }, [outliers])
-
 
   useEffect(() => {
     if (sideBarActiveTab == "Routing" && graphData) {
@@ -154,14 +158,24 @@ function App() {
     }
   }, [sideBarActiveTab]);
 
-  // وقتی گره‌هایی انتخاب شدن، فیلترها دیگر اعمال نشده محسوب میشن
   useEffect(() => {
     if (selectedNodeIds.size > 0 && filtersApplied) {
       setFiltersApplied(false);
     }
   }, [selectedNodeIds, filtersApplied]);
 
-  
+  // آیکون مربوط به هر تب برای هدر کارت
+  const getHeaderIcon = () => {
+    switch (sideBarActiveTab) {
+        case "Filter": return <SlidersHorizontal className="text-slate-500" />;
+        case "Routing": return <LineSquiggle className="text-slate-500" />;
+        case "Settings": return <Settings className="text-slate-500" />;
+        case "Nodes": return <Workflow className="text-slate-500" />;
+        case "Outliers": return <RouteOff className="text-slate-500" />;
+        case 'SearchCaseIds': return <FolderSearch className="text-slate-500" />;
+        default: return null;
+    }
+  };
 
   return (
     <>
@@ -172,16 +186,16 @@ function App() {
           )}
           {step === 2 && dataFilePath && (
             <div
-              className="grid grid-cols-24 w-full h-screen p-2 overflow-hidden"
+              className="grid grid-cols-24 w-full h-screen p-3 gap-3 bg-slate-50 overflow-hidden"
               dir="rtl"
             >
+              {/* سایدبار با کمی فاصله از لبه‌ها */}
               <SideBar
-                className="col-span-2"
+                className="col-span-2 rounded-2xl h-[calc(100vh-24px)]"
                 activeTab={sideBarActiveTab}
                 onClickTab={(name) => {
                   if (name === sideBarActiveTab && isSideCardShow) {
                     setIsSideCardShow(false);
-                    // setSideBarActiveTab(null);
                   } else {
                     setSideBarActiveTab(name);
                     setIsSideCardShow(true);
@@ -190,148 +204,130 @@ function App() {
               />
 
               <Activity mode={`${isSideCardShow ? "visible" : "hidden"}`}>
-                <Card className="col-span-6 h-[98%]">
-                  <CardHeader className="flex gap-x-3">
-                    
-                    <p className="text-2xl font-bold">
-                      {sideBarActiveTab === "Filter" && "فیلتر ها"}
-                      {sideBarActiveTab === "Routing" && "مسیر یابی بین دو یال"}
-                      {sideBarActiveTab === "Settings" && "تنظیمات"}
-                      {sideBarActiveTab === "Nodes" && "جستجو بین گره ها"}
-                      {sideBarActiveTab === 'Outliers' && "مسیر های پرت گراف"}
+                {/* استایل جدید کارت: سفید، سایه نرم، بوردر محو */}
+                <Card 
+                    className="col-span-6 h-[calc(100vh-24px)] bg-white/80 backdrop-blur-xl border border-slate-200/60 shadow-sm rounded-3xl"
+                    shadow="none"
+                >
+                  <CardHeader className="flex gap-x-3 items-center border-b border-slate-100 py-4 px-5">
+                    <div className="p-2 bg-slate-100 rounded-xl">
+                        {getHeaderIcon()}
+                    </div>
+                    <p className="text-lg font-bold text-slate-700">
+                      {sideBarActiveTab === "Filter" && "فیلترهای پیشرفته"}
+                      {sideBarActiveTab === "Routing" && "مسیریابی هوشمند"}
+                      {sideBarActiveTab === "Settings" && "تنظیمات نمودار"}
+                      {sideBarActiveTab === "Nodes" && "جستجوی گره‌ها"}
+                      {sideBarActiveTab === 'Outliers' && "تحلیل ناهنجاری‌ها"}
+                      {sideBarActiveTab === 'SearchCaseIds' && "جستجوی شناسه پرونده"}
                     </p>
                   </CardHeader>
-                  <CardBody className="text-right">
-                    <Activity
-                      mode={`${sideBarActiveTab === "Filter" ? "visible" : "hidden"}`}
-                    >
-                      <Filters submit={submit} isLoading={isLoadingRenderer} />
-                    </Activity>
+                  
+                  <CardBody className="text-right p-0 overflow-hidden">
+                    <div className="h-full w-full overflow-y-auto px-4 py-2 scrollbar-hide">
+                        <Activity mode={`${sideBarActiveTab === "Filter" ? "visible" : "hidden"}`}>
+                          <Filters submit={submit} isLoading={isLoadingRenderer} />
+                        </Activity>
 
-                    <Activity
-                      mode={`${sideBarActiveTab === "Routing" && graphData ? "visible" : "hidden"}`}
-                    >
-                      <PathfindingCard
-                        startNodeId={pathStartNodeId}
-                        endNodeId={pathEndNodeId}
-                        paths={foundPaths}
-                        allNodes={allNodes}
-                        selectedNodeIds={selectedNodeIds}
-                        onSelectPath={handleSelectPath}
-                        selectedIndex={selectedPathIndex}
-                        calculatePathDuration={calculatePathDuration}
-                        isLoading={isPathfindingLoading}
-                        handleNodeClick={handleNodeClick}
-                        resetPathfinding={() => {
-                          resetPathfinding();
-                          setIsPathFinding(true);
-                        }}
-                        removePath={removePath}
-                      />
-                    </Activity>
-                    <div
-                      className={`w-full h-full flex justify-center items-center text-center text-3xl font-bold leading-15 ${sideBarActiveTab === "Routing" && !graphData ? "" : "hidden"}`}
-                    >
-                      لطفا ابتدا داده ی گراف را از تب فیلتر ها انتخاب کنید.
+                        <Activity mode={`${sideBarActiveTab === "Routing" && graphData ? "visible" : "hidden"}`}>
+                          <PathfindingCard
+                            startNodeId={pathStartNodeId}
+                            endNodeId={pathEndNodeId}
+                            paths={foundPaths}
+                            allNodes={allNodes}
+                            selectedNodeIds={selectedNodeIds}
+                            onSelectPath={handleSelectPath}
+                            selectedIndex={selectedPathIndex}
+                            calculatePathDuration={calculatePathDuration}
+                            isLoading={isPathfindingLoading}
+                            handleNodeClick={handleNodeClick}
+                            resetPathfinding={() => {
+                              resetPathfinding();
+                              setIsPathFinding(true);
+                            }}
+                            removePath={removePath}
+                          />
+                        </Activity>
+
+                        <div className={`w-full h-full flex flex-col gap-4 justify-center items-center text-center p-8 ${sideBarActiveTab === "Routing" && !graphData ? "" : "hidden"}`}>
+                          <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center text-blue-400">
+                             <SlidersHorizontal size={32} />
+                          </div>
+                          <p className="text-slate-500 font-medium">
+                              برای شروع مسیریابی، لطفاً ابتدا داده‌ها را از بخش فیلترها پردازش کنید.
+                          </p>
+                        </div>
+
+                        <Activity mode={`${sideBarActiveTab === "Nodes" ? "visible" : "hidden"}`}>
+                          <NodesFilterCard
+                            Nodes={allNodes}
+                            selectedNodeIds={selectedNodeIds}
+                            onSelectionChange={setSelectedNodeIds}
+                            onFilteredNodesChange={setFilteredNodes}
+                          />
+                        </Activity>
+
+                        <SettingsCard
+                          ColorPaletteProps={{
+                            options: paletteOptions,
+                            value: selectedColorPalette,
+                            onChange: (value) => setSelectedColorPalette(value),
+                          }}
+                          className={`${sideBarActiveTab !== "Settings" && "hidden"}`}
+                        />
+                        
+                        <Activity mode={`${sideBarActiveTab === "Outliers" ? "visible" : "hidden"}`}>
+                          <OutliersCard outliers={outliers} allNodes={allNodes} selectedIndex={selectedPathIndex} onSelectOutlier={handleSelectOutlier} selectedNodeIds={selectedNodeIds}/>
+                        </Activity>
+                        {sideBarActiveTab === "SearchCaseIds" && (
+                            <SearchCaseIdsCard filePath={dataFilePath} filters={filters} onCaseFound={handleSelectOutlier}/>
+                        )}
                     </div>
-                    <Activity
-                      mode={`${sideBarActiveTab === "Nodes" ? "visible" : "hidden"}`}
-                    >
-                      <NodesFilterCard
-                        Nodes={allNodes}
-                        selectedNodeIds={selectedNodeIds}
-                        onSelectionChange={setSelectedNodeIds}
-                        onFilteredNodesChange={setFilteredNodes}
-                      />
-                    </Activity>
-                    <SettingsCard
-                      ColorPaletteProps={{
-                        options: paletteOptions,
-                        value: selectedColorPalette,
-                        onChange: (value) => {
-                          setSelectedColorPalette(value);
-                        },
-                      }}
-                      className={`${sideBarActiveTab !== "Settings" && "hidden"}`}
-                    />
-                    <Activity mode={`${sideBarActiveTab === "Outliers" ? "visible" : "hidden"}`}>
-                      <OutliersCard outliers={outliers} allNodes={allNodes} selectedIndex={selectedPathIndex} onSelectOutlier={handleSelectOutlier} selectedNodeIds={selectedNodeIds}/>
-                    </Activity>
                   </CardBody>
                 </Card>
               </Activity>
-              <main
-                className={`${isSideCardShow ? "col-span-16" : "col-span-22"} flex items-center justify-center`}
-              >
-                {isLoadingRenderer && (
-                  <p>در حال پردازش داده‌ها، لطفاً منتظر بمانید...</p>
-                )}
 
-                {/* اگر فیلترها اعمال شده ولی هنوز گره‌ای انتخاب نشده، متن مناسب نمایش داده شود */}
-                {!isLoadingRenderer &&
-                  graphData &&
-                  selectedNodeIds.size === 0 && (
-                    <div className="flex justify-center items-center h-full">
-                      <h2 className="text-xl font-bold text-center leading-15">
-                        فیلترها اعمال شدند. لطفاً از تب "گره‌ها" گره‌های مورد
-                        نظر خود را انتخاب کنید تا گراف نمایش داده شود.
-                      </h2>
+              <main className={`${isSideCardShow ? "col-span-16" : "col-span-22"} flex items-center justify-center relative transition-all duration-300`}>
+                 {/* تغییر استایل پس‌زمینه کانتینر گراف به سفید/خاکستری روشن برای هماهنگی */}
+                 <div className="w-full h-[calc(100vh-24px)] bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden relative">
+                    {isLoadingRenderer && (
+                    <div className="absolute inset-0 z-50 flex flex-col gap-4 justify-center items-center bg-white/80 backdrop-blur-sm">
+                         {/* لودینگ کاستوم */}
+                         <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                        <p className="text-slate-600 font-medium animate-pulse">در حال پردازش داده‌ها...</p>
                     </div>
-                  )}
+                    )}
 
-                {!isLoadingRenderer && graphData && selectedNodeIds.size > 0 && (
-                  <Graph
-                    filteredNodeIds={selectedNodeIds}
-                    className="w-full h-full"
-                    utils={{
-                      GraphLayout: {
-                        allNodes,
-                        layoutedNodes,
-                        layoutedEdges,
-                        isLoading,
-                        loadingMessage,
-                        setLayoutedNodes,
-                        setLayoutedEdges,
-                      },
-                      GraphInteraction: {
-                        activeTooltipEdgeId,
-                        
-                        isNodeCardVisible,
-                        isEdgeCardVisible,
-                        nodeTooltipTitle,
-                        nodeTooltipData,
-                        edgeTooltipTitle,
-                        edgeTooltipData,
-                        pathStartNodeId,
-    pathEndNodeId,
-    foundPaths,
-    isPathfindingLoading,
-    isPathFinding,
-    handleEdgeSelect,
-    handleSelectPath, 
-    handleNodeClick,
-    selectedPathNodes,
-    selectedPathEdges,
-    selectedPathIndex,
-                        closeNodeTooltip,
-                        closeEdgeTooltip,
-                        setIsPathFinding,
-                        setIsNodeCardVisible,
-                        setIsEdgeCardVisible,
-                        resetPathfinding,
-                        calculatePathDuration,
-                        onPaneClick,
-                      },
-                    }}
-                  />
-                )}
+                    {!isLoadingRenderer && graphData && selectedNodeIds.size === 0 && (
+                        <div className="flex flex-col gap-4 justify-center items-center h-full text-center p-10">
+                             <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center">
+                                <Workflow size={40} className="text-slate-400" />
+                             </div>
+                            <h2 className="text-xl font-bold text-slate-700">داده‌ها آماده نمایش هستند</h2>
+                            <p className="text-slate-500 max-w-md">
+                                از منوی "جستجوی گره‌ها" یا "فیلترها"، گره‌های مورد نظر خود را انتخاب کنید تا گراف ترسیم شود.
+                            </p>
+                        </div>
+                    )}
 
-                {!isLoadingRenderer && !graphData && (
-                  <p>
-                    برای مشاهده‌ی گراف، فیلترها را تنظیم کرده و دکمه "پردازش" را
-                    بزنید.
-                  </p>
-                )}
+                    {!isLoadingRenderer && graphData && selectedNodeIds.size > 0 && (
+                        <Graph
+                            filteredNodeIds={selectedNodeIds}
+                            className="w-full h-full bg-slate-50" // پس زمینه گراف
+                            utils={{
+                                GraphLayout: { allNodes, layoutedNodes, layoutedEdges, isLoading, loadingMessage, setLayoutedNodes, setLayoutedEdges },
+                                GraphInteraction: { activeTooltipEdgeId, isNodeCardVisible, isEdgeCardVisible, nodeTooltipTitle, nodeTooltipData, edgeTooltipTitle, edgeTooltipData, pathStartNodeId, pathEndNodeId, foundPaths, isPathfindingLoading, isPathFinding, handleEdgeSelect, handleSelectPath, handleNodeClick, selectedPathNodes, selectedPathEdges, selectedPathIndex, closeNodeTooltip, closeEdgeTooltip, setIsPathFinding, setIsNodeCardVisible, setIsEdgeCardVisible, resetPathfinding, calculatePathDuration, onPaneClick },
+                            }}
+                        />
+                    )}
+
+                    {!isLoadingRenderer && !graphData && (
+                        <div className="flex flex-col gap-4 justify-center items-center h-full text-center">
+                            <img src="./src/assets/display-icon.svg" className="w-32 h-32 opacity-20 grayscale" alt="Empty" />
+                            <p className="text-slate-400 font-medium">لطفاً برای شروع، فایل داده را بارگذاری و فیلتر کنید.</p>
+                        </div>
+                    )}
+                 </div>
               </main>
             </div>
           )}

@@ -9,4 +9,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
     filters: FilterTypes
   ) => ipcRenderer.invoke("process-data", formatType, inputPath, filters),
   openFileDialog: () => ipcRenderer.invoke("open-file-dialog"),
+  searchCase: (caseId: string, filePath: string, format: "csv" | "pkl" | "parquet", startDate?: string, endDate?: string) => 
+    ipcRenderer.invoke('search-case', caseId, filePath, format, startDate, endDate),
 });

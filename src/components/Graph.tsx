@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useState, useRef } from "react";
 import {
   ReactFlow,
   Background,
@@ -8,6 +8,11 @@ import {
   MarkerType,
   applyNodeChanges,
   NodeChange,
+  OnMoveEnd,
+  OnMoveStart,
+  EdgeMouseHandler,
+  NodeMouseHandler,
+  NodeTypes,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Card } from "@heroui/card";
@@ -15,6 +20,7 @@ import { Card } from "@heroui/card";
 import { StyledSmoothStepEdge } from "./graph/ui/StyledSmoothStepEdge";
 import { NodeTooltip } from "./graph/ui/NodeTooltip";
 import EdgeTooltip from "./graph/ui/EdgeTooltip";
+import CustomNode from "./graph/ui/CustomNode";
 import type { Path, NodeTooltipType, ExtendedPath } from "src/types/types";
 
 interface UtilsProps {
@@ -42,8 +48,8 @@ interface UtilsProps {
     selectedPathNodes: Set<string>;
     selectedPathEdges: Set<string>;
     selectedPathIndex: number | null;
-    isPathfindingLoading: boolean;
     isPathFinding: boolean;
+    isPathfindingLoading: boolean;
     handleEdgeSelect: (id: string, overrides?: any) => void;
     handleSelectPath: (path: Path, index: number) => void;
     handleNodeClick: (_event: React.MouseEvent, node: Node) => void;
@@ -67,11 +73,34 @@ interface GraphProps {
   filteredNodeIds?: Set<string>;
 }
 
+const defaultEdgeOptions = {
+  markerEnd: {
+    type: MarkerType.ArrowClosed,
+    height: 7,
+  },
+  type: "default",
+  animated: false,
+};
+
+const edgeTypes = {
+  default: StyledSmoothStepEdge,
+};
+
+const nodeTypes: NodeTypes = {
+  start: CustomNode,
+  end: CustomNode,
+  activity: CustomNode,
+  default: CustomNode,
+};
+
 export default function Graph({
   className,
   utils,
   filteredNodeIds,
 }: GraphProps) {
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const {
     layoutedNodes,
     layoutedEdges,
@@ -100,11 +129,17 @@ export default function Graph({
     closeNodeTooltip,
     closeEdgeTooltip,
     onPaneClick,
-
   } = utils.GraphInteraction;
 
   const formatDuration = (seconds: number) => {
-    return `${(seconds / 3600 / 24).toFixed(2)} روز`;
+    if (seconds < 60) {
+      return `${seconds.toFixed(0)} ثانیه`;
+    } else if (seconds < 3600) {
+      return `${(seconds / 60).toFixed(1)} دقیقه`;
+    } else if (seconds < 86400) {
+      return `${(seconds / 3600).toFixed(1)} ساعت`;
+    }
+    return `${(seconds / 86400).toFixed(2)} روز`;
   };
 
   const onNodesChange = useCallback(
@@ -114,45 +149,48 @@ export default function Graph({
     [setLayoutedNodes]
   );
 
-  const getNodeStyle = useCallback((node: Node) => {
-    const baseStyle = {
-      width: node.style?.width || 250,
-      borderRadius: "8px",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      fontSize: "14px",
-      fontWeight: "bold",
-      textAlign: "center" as const,
-      padding: "10px",
-      border: "2px solid",
-    };
-
-    switch (node.data?.type) {
-      case "start":
-        return {
-          ...baseStyle,
-          backgroundColor: "#10b981",
-          color: "white",
-          borderColor: "#059669",
-        };
-      case "end":
-        return {
-          ...baseStyle,
-          backgroundColor: "#ef4444",
-          color: "white",
-          borderColor: "#dc2626",
-        };
-      case "activity":
-      default:
-        return {
-          ...baseStyle,
-          backgroundColor: "#3b82f6",
-          color: "white",
-          borderColor: "#2563eb",
-        };
+  const onMoveStart: OnMoveStart = useCallback(() => {
+    if (containerRef.current) {
+      containerRef.current.classList.add("is-interacting");
     }
   }, []);
+
+  const onMoveEnd: OnMoveEnd = useCallback((event, viewport) => {
+    if (containerRef.current) {
+      containerRef.current.classList.remove("is-interacting");
+    }
+    setZoomLevel(viewport.zoom);
+  }, []);
+
+  // ✅ Wrapper برای هندل کردن کلیک روی پن (بک‌گراند)
+  const onPaneClickWrapper = useCallback((event: React.MouseEvent) => {
+    // 1. اطمینان از حذف کلاس تعامل
+    if (containerRef.current) {
+      containerRef.current.classList.remove("is-interacting");
+    }
+    // 2. اجرای لاجیک اصلی
+    onPaneClick();
+  }, [onPaneClick]);
+
+  // ✅ Wrapper برای هندل کردن کلیک روی نود
+  const onNodeClickWrapper: NodeMouseHandler = useCallback((event, node) => {
+    if (containerRef.current) {
+      containerRef.current.classList.remove("is-interacting");
+    }
+    handleNodeClick(event, node);
+  }, [handleNodeClick]);
+
+  // ✅ Wrapper برای هندل کردن کلیک روی یال
+  const onEdgeClickWrapper: EdgeMouseHandler = useCallback(
+    (event, edge) => {
+      if (containerRef.current) {
+        containerRef.current.classList.remove("is-interacting");
+      }
+      const overrideData = edge.data?.tooltipOverrideData;
+      handleEdgeSelect(edge.id, overrideData);
+    },
+    [handleEdgeSelect]
+  );
 
   const nodesForRender = useMemo(() => {
     const isHighlighting = selectedPathNodes.size > 0;
@@ -160,33 +198,29 @@ export default function Graph({
       filteredNodeIds && filteredNodeIds.size > 0
         ? layoutedNodes.filter((node) => filteredNodeIds.has(node.id))
         : null;
-    return nodesToShow?.map((node) => {
-      const isHighlighted = selectedPathNodes.has(node.id);
 
-      const isStart = node.id === pathStartNodeId;
-      const isEnd = node.id === pathEndNodeId;
+    const sourceNodes = nodesToShow || layoutedNodes;
+
+    return sourceNodes.map((node) => {
+      const isHighlighted = selectedPathNodes.has(node.id);
+      const nodeType = (node.data?.type as string) || "activity";
+
       return {
         ...node,
+        type: nodeType,
         data: {
           ...node.data,
           label: node.data?.label || node.id,
         },
         style: {
-          ...getNodeStyle(node),
+          width: 'fit-content',
           opacity: isHighlighting && !isHighlighted ? 0.2 : 1,
-          boxShadow: isStart
-            ? "0 0 15px 3px #10b981"
-            : isEnd
-              ? "0 0 15px 3px #ef4444"
-              : "",
-          transition: "all 0.3s ease",
+          transition: "opacity 0.3s ease",
         },
-        label: node.data?.label || node.id,
       };
     });
   }, [
     layoutedNodes,
-    getNodeStyle,
     selectedPathNodes,
     pathStartNodeId,
     pathEndNodeId,
@@ -195,125 +229,126 @@ export default function Graph({
 
   const edgesForRender = useMemo(() => {
     const isHighlighting = selectedPathEdges.size > 0;
+    const showEdgeLabels = zoomLevel > 0.6; 
 
     let activePath: ExtendedPath | null = null;
-    if (selectedPathIndex !== null && foundPaths && foundPaths[selectedPathIndex]) {
-        activePath = foundPaths[selectedPathIndex] as ExtendedPath;
+    if (
+      selectedPathIndex !== null &&
+      foundPaths &&
+      foundPaths[selectedPathIndex]
+    ) {
+      activePath = foundPaths[selectedPathIndex] as ExtendedPath;
     }
 
     const processedEdges = layoutedEdges.map((edge) => {
       const isHighlighted = selectedPathEdges.has(edge.id);
-      const isTooltipActive = activeTooltipEdgeId !== null && edge.id === activeTooltipEdgeId;
-      
-      const opacity = (utils.GraphInteraction.isPathFinding || isHighlighting) && !isHighlighted 
-        ? 0.2 
-        : (edge.style?.opacity ?? 1);
+      const isTooltipActive =
+        activeTooltipEdgeId !== null && edge.id === activeTooltipEdgeId;
 
-      let displayLabel = edge.label; 
+      const opacity =
+        (isPathFinding || isHighlighting) && !isHighlighted
+          ? 0.1 
+          : edge.style?.opacity ?? 1;
+
+      let displayLabel = edge.label as string;
       let tooltipMeanTime = (edge.data as any)?.Tooltip_Mean_Time;
       let tooltipTotalTime = (edge.data as any)?.Tooltip_Total_Time;
-      // متغیر برای ذخیره دیتای جایگزین تولتیپ
       let tooltipOverride = undefined;
 
       if (activePath && isHighlighted) {
-         const pathEdges = activePath.edges || [];
-         const edgeIndices: number[] = [];
-         
-         pathEdges.forEach((id: string, idx: number) => {
-             if (id === edge.id) edgeIndices.push(idx);
-         });
-         
-         if (edgeIndices.length > 0 && 
-             activePath._variantTimings && 
-             activePath._variantTimings.length > 0 &&
-             typeof activePath._startIndex === 'number') {
-             
-             let totalDuration = 0;
-             let count = 0;
-             
-             edgeIndices.forEach(idx => {
-                 const timeIndex = activePath._startIndex! + idx;
-                 const start = activePath._variantTimings![timeIndex];
-                 const end = activePath._variantTimings![timeIndex + 1];
-                 
-                 if (typeof start === 'number' && typeof end === 'number') {
-                     totalDuration += Math.max(0, end - start);
-                     count++;
-                 }
-             });
-             
-             if (count > 0) {
-                 const formatted = formatDuration(totalDuration);
-                 displayLabel = formatted;
-                 tooltipMeanTime = count > 1 ? `${formatted} (مجموع ${count} بار عبور)` : formatted;
+          const pathEdges = activePath.edges || [];
+            const edgeIndices: number[] = [];
 
-                 const frequency = activePath._frequency || 0;
-                 const totalVariantDuration = totalDuration * frequency;
-                 tooltipTotalTime = formatDuration(totalVariantDuration);
-                 
-                 // ساخت آبجکت جایگزین برای تولتیپ
-                 tooltipOverride = {
-                     label: (foundPaths[selectedPathIndex] as ExtendedPath)._frequency!, // نمایش تعداد دفعات عبور به جای فرکانس کل
-                     meanTime: tooltipMeanTime,
-                     totalTime: tooltipTotalTime
-                 };
-             }
-         }
+            pathEdges.forEach((id: string, idx: number) => {
+            if (id === edge.id) edgeIndices.push(idx);
+            });
+
+            if (
+            edgeIndices.length > 0 &&
+            activePath._variantTimings &&
+            activePath._variantTimings.length > 0 &&
+            typeof activePath._startIndex === "number"
+            ) {
+            let totalDuration = 0;
+            let count = 0;
+
+            edgeIndices.forEach((idx) => {
+                const timeIndex = activePath!._startIndex! + idx;
+                const start = activePath!._variantTimings![timeIndex];
+                const end = activePath!._variantTimings![timeIndex + 1];
+
+                if (typeof start === "number" && typeof end === "number") {
+                totalDuration += Math.max(0, end - start);
+                count++;
+                }
+            });
+
+            if (count > 0) {
+                const formatted = formatDuration(totalDuration);
+                displayLabel = formatted;
+                tooltipMeanTime =
+                count > 1 ? `${formatted} (مجموع ${count} بار عبور)` : formatted;
+
+                const frequency = activePath._frequency || 0;
+                const totalVariantDuration = totalDuration * frequency;
+                tooltipTotalTime = formatDuration(totalVariantDuration);
+
+                tooltipOverride = {
+                label: (foundPaths[selectedPathIndex!] as ExtendedPath)._frequency!,
+                meanTime: tooltipMeanTime,
+                totalTime: tooltipTotalTime,
+                };
+            }
+        }
       }
 
-      // استایل دهی
-      let finalStroke = edge.style?.stroke;
-      let finalStrokeWidth = edge.style?.strokeWidth;
-
-      
+      const finalLabel = (isHighlighted || showEdgeLabels) ? displayLabel : "";
 
       return {
         ...edge,
-        label: displayLabel,
+        label: finalLabel,
+        hidden: false,
         data: {
           ...edge.data,
-          // پاس دادن تابع با wrapper برای استفاده در جاهای دیگر اگر لازم شد
-          onEdgeSelect: (id: string) => handleEdgeSelect(id, tooltipOverride),
+          tooltipOverrideData: tooltipOverride,
           isTooltipVisible: isTooltipActive,
           Tooltip_Mean_Time: tooltipMeanTime,
         },
-        // --- تغییر مهم: پاس دادن tooltipOverride هنگام کلیک ---
-        onClick: () => handleEdgeSelect(edge.id, tooltipOverride),
         style: {
           ...(edge.style || {}),
-          stroke: finalStroke,
-          strokeWidth: finalStrokeWidth,
+          stroke: edge.style?.stroke,
+          strokeWidth: edge.style?.strokeWidth,
           opacity: opacity,
-          transition: "all 0.3s ease",
-          zIndex: isTooltipActive ? 1000 : (edge.selected || isHighlighted) ? 500 : undefined,
+          zIndex: isTooltipActive ? 1000 : isHighlighted ? 500 : 0,
         },
+        focusable: true,
       };
     });
 
     return processedEdges.sort((a, b) => {
-      if (activeTooltipEdgeId) {
         if (a.id === activeTooltipEdgeId) return 1;
         if (b.id === activeTooltipEdgeId) return -1;
-      }
-      if (a.selected && !b.selected) return 1;
-      if (!a.selected && b.selected) return -1;
-      return 0;
+        const aSelected = selectedPathEdges.has(a.id);
+        const bSelected = selectedPathEdges.has(b.id);
+        if (aSelected && !bSelected) return 1;
+        if (!aSelected && bSelected) return -1;
+        return 0;
     });
 
   }, [
     layoutedEdges,
-    handleEdgeSelect,
     activeTooltipEdgeId,
     selectedPathEdges,
-    utils.GraphInteraction.isPathFinding,
+    isPathFinding,
     selectedPathIndex,
     foundPaths,
+    zoomLevel,
   ]);
 
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-full">
-        <h2>{loadingMessage}</h2>
+        <h2 className="text-lg font-medium text-white/70">{loadingMessage}</h2>
       </div>
     );
   }
@@ -321,55 +356,60 @@ export default function Graph({
   if (layoutedNodes.length === 0) {
     return (
       <div className="flex justify-center items-center h-full">
-        <h2>هیچ داده‌ای برای نمایش وجود ندارد.</h2>
+        <h2 className="text-lg font-medium text-white/50">هیچ داده‌ای برای نمایش وجود ندارد.</h2>
       </div>
     );
   }
 
   return (
-    <div className={`${className} w-full h-full`}>
+    <div ref={containerRef} className={`${className} w-full h-full`}>
       <div className="relative w-full h-full">
         {isNodeCardVisible && (
-          <Card className="absolute right-2 z-100 p-2 max-h-[250px] min-w-[600px]">
-              <NodeTooltip
-                nodeTooltipTitle={nodeTooltipTitle}
-                nodeTooltipData={nodeTooltipData}
-                onClose={closeNodeTooltip}
-                onEdgeSelect={handleEdgeSelect}
-              />
+          <Card className="absolute right-2 z-50 p-2 max-h-[250px] min-w-[600px] shadow-xl">
+            <NodeTooltip
+              nodeTooltipTitle={nodeTooltipTitle}
+              nodeTooltipData={nodeTooltipData}
+              onClose={closeNodeTooltip}
+              onEdgeSelect={handleEdgeSelect}
+            />
           </Card>
-          )}
-          {isEdgeCardVisible && (
-          <Card className="absolute z-1 bottom-4 w-[98%] right-3">
-              <EdgeTooltip
-                edgeTooltipData={edgeTooltipData}
-                edgeTooltipTitle={edgeTooltipTitle}
-                onClose={closeEdgeTooltip}
-              />
+        )}
+        {isEdgeCardVisible && (
+          <Card className="absolute z-10 bottom-4 w-[98%] right-3 shadow-xl">
+            <EdgeTooltip
+              edgeTooltipData={edgeTooltipData}
+              edgeTooltipTitle={edgeTooltipTitle}
+              onClose={closeEdgeTooltip}
+            />
           </Card>
-          )}
+        )}
 
         <ReactFlow
           nodes={nodesForRender}
           edges={edgesForRender}
-          fitView
-          nodesDraggable
-          edgeTypes={{
-            default: StyledSmoothStepEdge,
-          }}
-          defaultEdgeOptions={{
-            markerEnd: {
-              type: MarkerType.ArrowClosed,
-              height: 7,
-            },
-          }}
-          minZoom={0.05}
+          nodeTypes={nodeTypes}
           onNodesChange={onNodesChange}
+          
+          // ✅ استفاده از Wrappers
+          onNodeClick={onNodeClickWrapper}
+          onEdgeClick={onEdgeClickWrapper}
+          onPaneClick={onPaneClickWrapper}
+          
+          onMoveStart={onMoveStart}
+          onMoveEnd={onMoveEnd}
+
+          onlyRenderVisibleElements={true}
+          minZoom={0.05}
+          maxZoom={4}
+          edgeTypes={edgeTypes}
+          defaultEdgeOptions={defaultEdgeOptions}
           nodesConnectable={false}
-          onNodeClick={handleNodeClick}
-          onPaneClick={onPaneClick}
+          nodesDraggable={true} 
+          elementsSelectable={true}
+          fitView
+          proOptions={{ hideAttribution: true }}
         >
-          <Background />
+          <Background gap={20} size={1} />
           <Controls />
         </ReactFlow>
       </div>
