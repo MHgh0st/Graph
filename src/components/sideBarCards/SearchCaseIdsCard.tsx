@@ -4,8 +4,6 @@ import { Button } from "@heroui/button";
 import { Chip } from "@heroui/chip";
 import { Divider } from "@heroui/divider";
 import { ScrollShadow } from "@heroui/scroll-shadow";
-import Chart from "react-apexcharts"; 
-import { ApexOptions } from "apexcharts";
 import { 
   Search, 
   XCircle, 
@@ -25,18 +23,19 @@ import {
 
 import type { FilterTypes, SearchCaseIdsData, ExtendedPath, EdgeStatisticsGlobalData } from "src/types/types";
 import ProcessData from "../../utils/ProcessData";
-import GetEdgeStatisticsData from "../../utils/GetEdgeStatisticsData";
 
 interface SearchCaseIdsCardProps {
   filters: FilterTypes;
   filePath: string;
   onCaseFound?: (pathData: ExtendedPath, index: number) => void;
+  onSearchResult?: (data: SearchCaseIdsData | null) => void;
 }
 
 export default function SearchCaseIdsCard({
   filters,
   filePath,
   onCaseFound,
+  onSearchResult
 }: SearchCaseIdsCardProps) {
   const [caseIdInput, setCaseIdInput] = useState<number>();
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -60,20 +59,17 @@ export default function SearchCaseIdsCard({
     setIsLoading(true);
     setError(null);
     setSearchResult(null);
-    setGlobalStatisticsData(null); 
 
     try {
       const response = (await ProcessData(filePath, filters, caseIdNum)) as SearchCaseIdsData;
       setSearchResult(response);
 
+      if (onSearchResult) {
+         onSearchResult(response);
+      }
+
       if (response.found && response.data && response.data.nodes.length > 0) {
-        const globalStats = await GetEdgeStatisticsData(
-            filePath, 
-            filters.dateRange.start, 
-            filters.dateRange.end, 
-            'global'
-        ) as EdgeStatisticsGlobalData;
-        setGlobalStatisticsData(globalStats);
+        
 
         if (onCaseFound) {
           const edgeStats: Record<string, { sum: number; count: number }> = {};
@@ -124,101 +120,6 @@ export default function SearchCaseIdsCard({
     if (e.key === "Enter") submit();
   };
 
-  // --- Chart Preparation Logic ---
-  const chartData = useMemo(() => {
-    if (!globalStatisticsData || !searchResult?.data) return null;
-
-    const timeBins = globalStatisticsData.total_time.bins;
-    const timeCounts = globalStatisticsData.total_time.counts;
-    const timeCategories = timeCounts.map((_, i) => formatDuration(timeBins[i]));
-    const caseDuration = searchResult.data.total_duration;
-    
-    let timeIndex = timeBins.findIndex((bin, i) => {
-        if (i === timeBins.length - 1) return caseDuration >= bin;
-        return caseDuration >= bin && caseDuration < timeBins[i+1];
-    });
-    if (timeIndex === -1 && caseDuration >= timeBins[timeBins.length-1]) timeIndex = timeCounts.length - 1;
-    if (timeIndex >= timeCounts.length) timeIndex = timeCounts.length - 1;
-    if (timeIndex < 0) timeIndex = 0; 
-
-    const stepBins = globalStatisticsData.steps.bins;
-    const stepCounts = globalStatisticsData.steps.counts;
-    const stepCategories = stepCounts.map((_, i) => String(stepBins[i]));
-    const caseSteps = searchResult.data.nodes.length;
-    let stepIndex = stepBins.findIndex((bin, i) => {
-         if (i === stepBins.length - 1) return caseSteps >= bin;
-         return caseSteps >= bin && caseSteps < stepBins[i+1];
-    });
-    if (stepIndex === -1 && caseSteps >= stepBins[stepBins.length-1]) stepIndex = stepCounts.length - 1;
-    if (stepIndex >= stepCounts.length) stepIndex = stepCounts.length - 1;
-    if (stepIndex < 0) stepIndex = 0;
-
-    return {
-        time: {
-            series: [{ name: 'تعداد پرونده‌ها', data: timeCounts }],
-            categories: timeCategories,
-            annotationX: timeCategories[timeIndex], 
-            myValueFormatted: formatDuration(caseDuration)
-        },
-        steps: {
-            series: [{ name: 'تعداد پرونده‌ها', data: stepCounts }],
-            categories: stepCategories,
-            annotationX: stepCategories[stepIndex], 
-            myValue: caseSteps
-        }
-    };
-  }, [globalStatisticsData, searchResult]);
-
-  // --- Chart Options ---
-  const getChartOptions = (
-      categories: string[], 
-      annotationX: string, 
-      color: string, 
-      xAxisTitle: string,
-      yAxisTitle: string,
-      annotationLabel: string
-  ): ApexOptions => ({
-    chart: {
-        type: 'area',
-        toolbar: { show: false },
-        fontFamily: 'inherit',
-        animations: { enabled: true, easing: 'easeinout', speed: 800 },
-        parentHeightOffset: 0,
-    },
-    stroke: { curve: 'smooth', width: 2, colors: [color] },
-    fill: {
-        type: 'gradient',
-        gradient: {
-            shadeIntensity: 1, opacityFrom: 0.5, opacityTo: 0.1, stops: [0, 90, 100],
-            colorStops: [{ offset: 0, color: color, opacity: 0.5 }, { offset: 100, color: color, opacity: 0.1 }]
-        }
-    },
-    dataLabels: { enabled: false },
-    xaxis: {
-        categories: categories,
-        labels: { show: true, rotate: -45, hideOverlappingLabels: true, style: { fontSize: '10px', colors: '#64748b', fontFamily: 'inherit' }, trim: true, maxHeight: 60 },
-        axisBorder: { show: true, color: '#e2e8f0' },
-        axisTicks: { show: true, color: '#e2e8f0' },
-        title: { text: xAxisTitle, style: { fontSize: '11px', color: '#94a3b8', fontWeight: 500 }, offsetY: 5 },
-        tooltip: { enabled: false }
-    },
-    yaxis: {
-        show: true,
-        labels: { style: { fontSize: '10px', colors: '#64748b', fontFamily: 'inherit' }, formatter: (val) => val >= 1000 ? `${(val/1000).toFixed(1)}k` : val.toFixed(0) },
-        title: { text: yAxisTitle, style: { fontSize: '11px', color: '#94a3b8', fontWeight: 500 }, rotate: -90, offsetX: 0 }
-    },
-    grid: { show: true, borderColor: '#f1f5f9', strokeDashArray: 4, padding: { top: 10, right: 20, bottom: 10, left: 20 } },
-    tooltip: { theme: 'light', y: { formatter: (val) => `${val} پرونده` }, x: { show: true } },
-    annotations: {
-        xaxis: [{
-            x: annotationX, borderColor: '#ef4444', strokeDashArray: 0, borderWidth: 2, opacity: 1,
-            label: {
-                borderColor: '#ef4444', style: { color: '#fff', background: '#ef4444', fontSize: '11px', padding: { left: 6, right: 6, top: 4, bottom: 4 }, fontWeight: 'bold', borderRadius: 4, fontFamily: 'inherit' },
-                text: annotationLabel, orientation: 'horizontal', position: 'top', offsetY: -15
-            }
-        }]
-    }
-  });
 
   // --- Helper to render Performance Stats ---
   const renderPerformanceStats = () => {
@@ -341,68 +242,6 @@ export default function SearchCaseIdsCard({
                   {renderPerformanceStats()}
 
                 </div>
-
-                {/* --- Charts Area --- */}
-                {chartData && (
-                    <div className="p-4 bg-slate-50 border-b border-slate-100 shrink-0 overflow-y-auto">
-                        <div className="flex items-center gap-2 mb-4">
-                            <Activity size={16} className="text-slate-500"/>
-                            <span className="text-sm font-bold text-slate-700">جایگاه پرونده در توزیع آماری</span>
-                        </div>
-                        
-                        <div className="flex flex-col gap-6 w-full">
-                            {/* Time Chart */}
-                            <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm relative">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-xs font-bold text-slate-600 flex items-center gap-1">
-                                        <Clock size={14} className="text-emerald-500"/> توزیع زمان کل
-                                    </span>
-                                </div>
-                                <div className="h-[280px] w-full dir-ltr">
-                                    <Chart 
-                                        options={getChartOptions(
-                                            chartData.time.categories, 
-                                            chartData.time.annotationX, 
-                                            '#10b981', 
-                                            'بازه زمانی',
-                                            'تعداد پرونده',
-                                            'پرونده شما'
-                                        )}
-                                        series={chartData.time.series}
-                                        type="area"
-                                        height="100%"
-                                        width="100%"
-                                    />
-                                </div>
-                            </div>
-                            
-                            {/* Steps Chart */}
-                            <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm relative">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="text-xs font-bold text-slate-600 flex items-center gap-1">
-                                        <BarChart2 size={14} className="text-blue-500"/> توزیع تعداد مراحل
-                                    </span>
-                                </div>
-                                <div className="h-[280px] w-full dir-ltr">
-                                    <Chart 
-                                        options={getChartOptions(
-                                            chartData.steps.categories, 
-                                            chartData.steps.annotationX, 
-                                            '#3b82f6', 
-                                            'تعداد مراحل',
-                                            'تعداد پرونده',
-                                            'پرونده شما'
-                                        )}
-                                        series={chartData.steps.series}
-                                        type="area"
-                                        height="100%"
-                                        width="100%"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
 
                 {/* Timeline Path */}
                 <ScrollShadow className="flex-1 p-4 bg-slate-50/30 min-h-[400px]">

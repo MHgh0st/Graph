@@ -14,6 +14,7 @@ import {
   GraphData,
   Variant,
   ProcessMiningData,
+  SearchCaseIdsData
 } from "./types/types";
 import SideBar from "./components/SideBar";
 import { useGraphLayout } from "./components/graph/hooks/useGraphLayout";
@@ -57,6 +58,7 @@ function App() {
   const [selectedPathIndex, setSelectedPathIndex] = useState<number | null>(
     null
   );
+  const [searchResultData, setSearchResultData] = useState<SearchCaseIdsData | null>(null);
 
   const [filters, setFilters] = useState<FilterTypes>();
 
@@ -177,6 +179,10 @@ function App() {
     }
   };
 
+  useEffect(() => {
+    setSearchResultData(null);
+}, [sideBarActiveTab]);
+
   return (
     <>
       <ReactFlowProvider>
@@ -279,9 +285,7 @@ function App() {
                         <Activity mode={`${sideBarActiveTab === "Outliers" ? "visible" : "hidden"}`}>
                           <OutliersCard outliers={outliers} allNodes={allNodes} selectedIndex={selectedPathIndex} onSelectOutlier={handleSelectOutlier} selectedNodeIds={selectedNodeIds}/>
                         </Activity>
-                        {sideBarActiveTab === "SearchCaseIds" && (
-                            <SearchCaseIdsCard filePath={dataFilePath} filters={filters} onCaseFound={handleSelectOutlier}/>
-                        )}
+                        {sideBarActiveTab === "SearchCaseIds" && <SearchCaseIdsCard filePath={dataFilePath} filters={filters} onCaseFound={handleSelectOutlier} onSearchResult={setSearchResultData}/>}
                     </div>
                   </CardBody>
                 </Card>
@@ -314,6 +318,9 @@ function App() {
                         <Graph
                             activeSideBar={sideBarActiveTab}
                             filteredNodeIds={selectedNodeIds}
+                            searchResult={searchResultData}
+                            filePath={dataFilePath}
+                            filters={filters}
                             className="w-full h-full bg-slate-50" // پس زمینه گراف
                             utils={{
                                 GraphLayout: { allNodes, layoutedNodes, layoutedEdges, isLoading, loadingMessage, setLayoutedNodes, setLayoutedEdges },

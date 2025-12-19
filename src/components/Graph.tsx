@@ -21,7 +21,8 @@ import { StyledSmoothStepEdge } from "./graph/ui/StyledSmoothStepEdge";
 import { NodeTooltip } from "./graph/ui/NodeTooltip";
 import EdgeTooltip from "./graph/ui/EdgeTooltip";
 import CustomNode from "./graph/ui/CustomNode";
-import type { Path, NodeTooltipType, ExtendedPath, SidebarTab } from "src/types/types";
+import CaseDistributionCharts from "./graph/ui/CaseDistributionCharts";
+import type { Path, NodeTooltipType, ExtendedPath, SidebarTab, SearchCaseIdsData, FilterTypes } from "src/types/types";
 
 interface UtilsProps {
   GraphLayout: {
@@ -68,10 +69,13 @@ interface UtilsProps {
 }
 
 interface GraphProps {
+  filePath: string;
+  filters: FilterTypes;
   className?: string;
   utils: UtilsProps;
   filteredNodeIds?: Set<string>;
   activeSideBar?: SidebarTab
+  searchResult?: SearchCaseIdsData | null;
 }
 
 const defaultEdgeOptions = {
@@ -98,7 +102,10 @@ export default function Graph({
   className,
   utils,
   filteredNodeIds,
-  activeSideBar
+  activeSideBar,
+  searchResult,
+  filePath,
+  filters
 }: GraphProps) {
   const [zoomLevel, setZoomLevel] = useState(1);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -293,6 +300,7 @@ export default function Graph({
               label: 1, // تعداد پرونده ۱ است
               meanTime: tooltipMeanTime,
               totalTime: tooltipTotalTime,
+              rawDuration: avgDuration
             };
           }
 
@@ -377,6 +385,25 @@ export default function Graph({
     foundPaths,
     zoomLevel,
   ]);
+  // محاسبه پراپ‌های چارت برای EdgeTooltip
+  const edgeChartProps = useMemo(() => {
+    // فقط در حالت جستجوی پرونده نمایش بده
+    if (activeSideBar !== 'SearchCaseIds' || !activeTooltipEdgeId || !filePath || !filters) return null;
+
+    // پیدا کردن یال فعال در لیست رندر شده (که حاوی دیتاهای override است)
+    const activeEdge = edgesForRender.find(e => e.id === activeTooltipEdgeId);
+    
+    if (activeEdge && activeEdge.data?.tooltipOverrideData?.rawDuration !== undefined) {
+       return {
+          source: activeEdge.source,
+          target: activeEdge.target,
+          duration: activeEdge.data.tooltipOverrideData.rawDuration as number,
+          filePath: filePath,
+          filters: filters
+       };
+    }
+    return null;
+  }, [activeTooltipEdgeId, activeSideBar, edgesForRender, filePath, filters]);
 
   if (isLoading) {
     return (
@@ -413,13 +440,18 @@ export default function Graph({
               edgeTooltipData={edgeTooltipData}
               edgeTooltipTitle={edgeTooltipTitle}
               onClose={closeEdgeTooltip}
+              chartProps={edgeChartProps}
             />
           </Card>
         )}
 
        {activeSideBar === 'SearchCaseIds' && (
         <Card className="absolute z-10 bottom-4 left-1/2 -translate-x-1/2 min-w-[95%] shadow-xl">
-          
+          <CaseDistributionCharts 
+                    searchResult={searchResult}
+                    filePath={filePath}
+                    filters={filters}
+                />
         </Card>
        )} 
 

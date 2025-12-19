@@ -56,10 +56,10 @@ const CustomNode = ({ data, selected }: NodeProps) => {
             {styles.icon}
         </div>
         <div className="flex flex-col text-right grow max-w-[83%]">
-          <span className="text-sm font-bold text-white/90 text-right text-nowrap" title={label}>
+          <span className="text-sm font-bold text-blue-400 text-right text-nowrap " title={label}>
             {label}
           </span>
-          <span className="text-[10px] text-white/50 font-vazir">
+          <span className="text-[10px] text-blue-400/60 font-vazir">
             {type === 'start' ? 'شروع فرآیند' : type === 'end' ? 'پایان فرآیند' : 'فعالیت'}
           </span>
         </div>

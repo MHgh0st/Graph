@@ -1,18 +1,27 @@
 import { X, Network, Clock, Hash, Activity, ArrowLeftRight } from "lucide-react";
 import { CardHeader, CardBody } from "@heroui/card";
 import { Button } from "@heroui/button";
-import { Divider } from "@heroui/divider";
+import EdgeDurationChart from "./EdgeDurationChart";
+import type { FilterTypes } from "src/types/types";
 
 interface EdgeTooltipProps {
   edgeTooltipTitle: string | null;
   edgeTooltipData: Array<{ label: string; value: string | number }>;
   onClose: () => void;
+  chartProps?: {
+    source: string;
+    target: string;
+    duration: number;
+    filePath: string;
+    filters: FilterTypes;
+  } | null;
 }
 
 export default function EdgeTooltip({
   edgeTooltipTitle,
   edgeTooltipData,
   onClose,
+  chartProps
 }: EdgeTooltipProps) {
   
   // تابع کمکی برای انتخاب آیکون بر اساس لیبل
@@ -62,7 +71,7 @@ export default function EdgeTooltip({
                   {getIcon(item.label)}
                   {item.label}
                 </span>
-                <span className="text-sm font-bold text-slate-700 font-mono tracking-tight">
+                <span className="text-sm font-bold text-slate-700 font-mono tracking-tight text-center">
                   {item.value}
                 </span>
               </div>
@@ -74,6 +83,21 @@ export default function EdgeTooltip({
                   اطلاعاتی برای نمایش وجود ندارد
               </div>
           )}
+
+
+          
+        </div>
+        <div className="m-2 mt-0">
+          {chartProps && (
+        <EdgeDurationChart 
+            source={chartProps.source}
+            target={chartProps.target}
+            duration={chartProps.duration}
+            filePath={chartProps.filePath}
+            filters={chartProps.filters}
+            
+        />
+      )}
         </div>
       </CardBody>
     </>

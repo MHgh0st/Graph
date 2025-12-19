@@ -100,7 +100,7 @@ export default function SideBar({
       name: "Outliers",
     },
     {
-      title: "جستجوی پرونده",
+      title: "بررسی پرونده",
       icon: FolderSearch,
       name: "SearchCaseIds",
     },
