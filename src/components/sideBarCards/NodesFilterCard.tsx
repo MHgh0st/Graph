@@ -1,9 +1,11 @@
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { Checkbox } from "@heroui/checkbox";
-import { Search, CheckSquare, Square } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Search, CheckSquare, Square, Layers, ListFilter } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
 import { useReactFlow, Node } from "@xyflow/react";
+import { Chip } from "@heroui/chip"; // برای نمایش تعداد زیبا
+import { Divider } from "@heroui/divider";
 
 interface Props {
   Nodes: Node[];
@@ -24,6 +26,7 @@ export default function NodesFilterCard({
   const [searchValue, setSearchValue] = useState<string>("");
   const { fitView } = useReactFlow();
 
+  // لاجیک جستجو
   useEffect(() => {
     if (!searchValue.trim()) {
       setSearchedNodes(Nodes);
@@ -36,6 +39,7 @@ export default function NodesFilterCard({
     }
   }, [Nodes, searchValue]);
 
+  // اعمال فیلتر روی گراف اصلی
   useEffect(() => {
     if (selectedNodeIds.size === 0) {
       onFilteredNodesChange([]);
@@ -44,6 +48,22 @@ export default function NodesFilterCard({
       onFilteredNodesChange(filtered);
     }
   }, [selectedNodeIds, Nodes, onFilteredNodesChange]);
+
+  // جداسازی لیست انتخاب شده‌ها از انتخاب نشده‌ها
+  const { selectedList, unselectedList } = useMemo(() => {
+    const selected: Node[] = [];
+    const unselected: Node[] = [];
+
+    searchedNodes.forEach((node) => {
+      if (selectedNodeIds.has(node.id)) {
+        selected.push(node);
+      } else {
+        unselected.push(node);
+      }
+    });
+
+    return { selectedList: selected, unselectedList: unselected };
+  }, [searchedNodes, selectedNodeIds]);
 
   const handleNodeClick = (nodeId: string) => {
     fitView({
@@ -70,97 +90,153 @@ export default function NodesFilterCard({
     onSelectionChange(new Set());
   };
 
+  // رندر کردن هر آیتم گره (برای جلوگیری از تکرار کد)
+  const renderNodeItem = (node: Node, isSelected: boolean) => (
+    <div
+      key={node.id}
+      className={`
+        group flex items-center gap-3 p-3 rounded-xl border transition-all duration-300 cursor-pointer relative overflow-hidden
+        ${
+          isSelected
+            ? "bg-blue-50/80 border-blue-200 shadow-sm"
+            : "bg-white border-slate-100 hover:border-slate-300 hover:shadow-sm"
+        }
+      `}
+      onClick={() => handleCheckboxChange(node.id, !isSelected)}
+    >
+      {/* نوار رنگی کنار آیتم انتخاب شده */}
+      {isSelected && (
+        <div className="absolute right-0 top-0 bottom-0 w-1 bg-blue-500 rounded-r-full" />
+      )}
+
+      <Checkbox
+        isSelected={isSelected}
+        radius="md"
+        color="primary"
+        classNames={{ wrapper: "before:border-slate-300" }}
+        onValueChange={(isChecked) => handleCheckboxChange(node.id, isChecked)}
+      />
+
+      <div
+        className="flex-1 flex flex-col items-start gap-0.5 min-w-0"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleNodeClick(node.id);
+        }}
+      >
+        <span
+          className={`text-sm font-medium truncate w-full ${
+            isSelected ? "text-blue-700" : "text-slate-700"
+          }`}
+        >
+          {node.data.label}
+        </span>
+        <span className="text-[10px] text-slate-400 group-hover:text-blue-400 transition-colors">
+          نمایش روی گراف
+        </span>
+      </div>
+    </div>
+  );
+
   return (
     <div className={`flex flex-col gap-y-4 h-full ${className || ""}`}>
-      {/* هدر جستجو */}
-      <div className="sticky top-0 z-20 bg-white/50 backdrop-blur-md pb-2 space-y-2">
-          <Input
-            type="text"
-            variant="flat"
-            placeholder="جستجوی نام فعالیت..."
-            startContent={<Search size={18} className="text-slate-400" />}
-            value={searchValue}
-            classNames={{
-                inputWrapper: "bg-slate-100 hover:bg-slate-200/70 focus-within:bg-white shadow-none border border-transparent focus-within:border-blue-500/50 transition-all rounded-xl",
-            }}
-            onChange={(e) => {
-              const value = e.target.value.replace('ی', 'ي');
-              setSearchValue(value);
-            }}
-          />
+      {/* هدر و جستجو */}
+      <div className="sticky top-0 z-20 bg-white/80 backdrop-blur-md pb-2 space-y-2">
+        <Input
+          type="text"
+          variant="flat"
+          placeholder="جستجوی نام فعالیت..."
+          startContent={<Search size={18} className="text-slate-400" />}
+          value={searchValue}
+          classNames={{
+            inputWrapper:
+              "bg-slate-100 hover:bg-slate-200/70 focus-within:bg-white shadow-none border border-transparent focus-within:border-blue-500/50 transition-all rounded-xl",
+          }}
+          onChange={(e) => {
+            const value = e.target.value.replace("ی", "ي");
+            setSearchValue(value);
+          }}
+        />
 
-          {Nodes.length > 0 && (
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                className="bg-blue-50 text-blue-600 font-medium flex-1 rounded-lg"
-                startContent={<CheckSquare size={14} />}
-                onPress={handleSelectAll}
-              >
-                انتخاب همه
-              </Button>
-              <Button
-                size="sm"
-                className="bg-rose-50 text-rose-600 font-medium flex-1 rounded-lg"
-                startContent={<Square size={14} />}
-                onPress={handleDeselectAll}
-              >
-                لغو همه
-              </Button>
-            </div>
-          )}
-          
-          {selectedNodeIds.size > 0 && (
-            <div className="text-xs text-center font-medium bg-slate-50 py-1.5 rounded-lg text-slate-500 border border-slate-100">
-              {selectedNodeIds.size} مورد انتخاب شده
-            </div>
-          )}
+        {Nodes.length > 0 && (
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="flat"
+              className="bg-blue-50 text-blue-600 font-medium flex-1 rounded-lg hover:bg-blue-100 transition-colors"
+              startContent={<CheckSquare size={14} />}
+              onPress={handleSelectAll}
+            >
+              انتخاب همه
+            </Button>
+            <Button
+              size="sm"
+              variant="flat"
+              className="bg-rose-50 text-rose-600 font-medium flex-1 rounded-lg hover:bg-rose-100 transition-colors"
+              startContent={<Square size={14} />}
+              onPress={handleDeselectAll}
+            >
+              لغو همه
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* لیست گره‌ها */}
       {Nodes.length > 0 ? (
-        <div className="flex flex-col gap-y-2 overflow-y-auto pr-1 pb-10 scrollbar-hide">
-          {searchedNodes.map((node) => {
-             const isSelected = selectedNodeIds.has(node.id);
-             return (
-                <div 
-                    key={node.id} 
-                    className={`
-                        group flex items-center gap-3 p-3 rounded-xl border transition-all duration-200 cursor-pointer
-                        ${isSelected 
-                            ? "bg-blue-50 border-blue-200 shadow-sm" 
-                            : "bg-white border-slate-100 hover:border-slate-300 hover:shadow-sm"
-                        }
-                    `}
-                    onClick={() => handleCheckboxChange(node.id, !isSelected)}
-                >
-                  <Checkbox
-                    isSelected={isSelected}
-                    radius="md"
-                    color="primary"
-                    classNames={{ wrapper: "before:border-slate-300" }}
-                    onValueChange={(isChecked) => handleCheckboxChange(node.id, isChecked)}
-                  />
-                  
-                  <div className="flex-1 flex flex-col items-start gap-0.5" onClick={(e) => {
-                      e.stopPropagation(); // جلوگیری از تریگر شدن چک‌باکس وقتی روی دکمه زوم می‌زنیم
-                      handleNodeClick(node.id);
-                  }}>
-                      <span className={`text-sm font-medium ${isSelected ? "text-blue-700" : "text-slate-700"}`}>
-                        {node.data.label}
-                      </span>
-                      <span className="text-[10px] text-slate-400 group-hover:text-blue-400 transition-colors">
-                        کلیک برای مشاهده روی گراف
-                      </span>
-                  </div>
+        <div className="flex flex-col gap-y-2 overflow-y-auto pr-1 pb-10 scrollbar-hide flex-1">
+          
+          {/* بخش انتخاب شده‌ها */}
+          {selectedList.length > 0 && (
+            <div className="flex flex-col gap-2 mb-2 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="flex items-center justify-between px-1 mt-1">
+                <div className="flex items-center gap-2 text-blue-600">
+                  <Layers size={14} />
+                  <span className="text-xs font-bold">انتخاب شده‌ها</span>
                 </div>
-            );
-          })}
+                <Chip size="sm" variant="flat" className="bg-blue-100 text-blue-700 h-5 text-[10px]">
+                  {selectedList.length}
+                </Chip>
+              </div>
+              <div className="flex flex-col gap-2">
+                {selectedList.map((node) => renderNodeItem(node, true))}
+              </div>
+            </div>
+          )}
+
+          {/* خط جداکننده (فقط اگر هر دو لیست آیتم داشته باشند) */}
+          {selectedList.length > 0 && unselectedList.length > 0 && (
+            <Divider className="my-2 bg-slate-200" />
+          )}
+
+          {/* بخش انتخاب نشده‌ها */}
+          {unselectedList.length > 0 && (
+            <div className="flex flex-col gap-2">
+              {selectedList.length > 0 && (
+                <div className="flex items-center justify-between px-1 opacity-60">
+                  <div className="flex items-center gap-2 text-slate-500">
+                    <ListFilter size={14} />
+                    <span className="text-xs font-bold">سایر موارد</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400">{unselectedList.length}</span>
+                </div>
+              )}
+              {unselectedList.map((node) => renderNodeItem(node, false))}
+            </div>
+          )}
+
+          {/* حالت جستجوی ناموفق */}
+          {searchedNodes.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-40 text-slate-400 gap-2 opacity-60">
+              <Search size={32} />
+              <span className="text-sm">فعالیتی با این نام یافت نشد</span>
+            </div>
+          )}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center h-40 text-slate-400 gap-2 opacity-60">
-            <Search size={32} />
-            <span className="text-sm">موردی یافت نشد</span>
+        <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2 opacity-60">
+          <Search size={32} />
+          <span className="text-sm">لیست فعالیت‌ها خالی است</span>
         </div>
       )}
     </div>

@@ -68,6 +68,7 @@ function App() {
   };
   const [filteredNodes, setFilteredNodes] = useState<Node[]>([]);
   const [filtersApplied, setFiltersApplied] = useState<boolean>(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
 
   const {
     allNodes,
@@ -183,6 +184,10 @@ function App() {
     setSearchResultData(null);
 }, [sideBarActiveTab]);
 
+const sidebarFr = isSidebarCollapsed ? 1 : 3;
+const cardFr = isSideCardShow ? 6 : 0;
+const mainFr = 24 - sidebarFr - cardFr;
+
   return (
     <>
       <ReactFlowProvider>
@@ -192,13 +197,21 @@ function App() {
           )}
           {step === 2 && dataFilePath && (
             <div
-              className="grid grid-cols-24 w-full h-screen p-3 gap-3 bg-slate-50 overflow-hidden"
+              className="grid w-full h-screen p-3 gap-3 bg-slate-50 overflow-hidden"
               dir="rtl"
+              style={{
+                // تعریف ستون‌ها: سایدبار | کارت | گراف
+                gridTemplateColumns: `${sidebarFr}fr ${cardFr}fr ${mainFr}fr`,
+                // انیمیشن نرم روی تغییر سایز ستون‌ها
+                transition: 'grid-template-columns 0.5s cubic-bezier(0.25, 0.8, 0.25, 1)'
+              }}
             >
               {/* سایدبار با کمی فاصله از لبه‌ها */}
               <SideBar
-                className="col-span-2 rounded-2xl h-[calc(100vh-24px)]"
+                className="rounded-3xl h-[calc(100vh-24px)] overflow-hidden min-w-0" // min-w-0 برای جلوگیری از سرریز
                 activeTab={sideBarActiveTab}
+                isCollapsed={isSidebarCollapsed}
+                onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
                 onClickTab={(name) => {
                   if (name === sideBarActiveTab && isSideCardShow) {
                     setIsSideCardShow(false);
@@ -209,7 +222,8 @@ function App() {
                 }}
               />
 
-              <Activity mode={`${isSideCardShow ? "visible" : "hidden"}`}>
+              <div className="h-full min-w-0 overflow-hidden">
+                <Activity mode={`${isSideCardShow ? "visible" : "hidden"}`}>
                 {/* استایل جدید کارت: سفید، سایه نرم، بوردر محو */}
                 <Card 
                     className="col-span-6 h-[calc(100vh-24px)] bg-white/80 backdrop-blur-xl border border-slate-200/60 shadow-sm rounded-3xl"
@@ -290,9 +304,9 @@ function App() {
                   </CardBody>
                 </Card>
               </Activity>
+              </div>
 
-              <main className={`${isSideCardShow ? "col-span-16" : "col-span-22"} flex items-center justify-center relative transition-all duration-300`}>
-                 {/* تغییر استایل پس‌زمینه کانتینر گراف به سفید/خاکستری روشن برای هماهنگی */}
+              <main className="flex items-center justify-center relative min-w-0 overflow-hidden">
                  <div className="w-full h-[calc(100vh-24px)] bg-white rounded-3xl border border-slate-200/60 shadow-sm overflow-hidden relative">
                     {isLoadingRenderer && (
                     <div className="absolute inset-0 z-50 flex flex-col gap-4 justify-center items-center bg-white/80 backdrop-blur-sm">
