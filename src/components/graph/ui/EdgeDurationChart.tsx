@@ -67,14 +67,8 @@ export default function EdgeDurationChart({
     const bins = histogramData.bins;
     const counts = histogramData.counts;
     
-    // ساخت لیبل‌های بازه‌ای (مثلاً: 0s - 5m)
-    const categories = counts.map((_, i) => {
-        const start = formatDuration(bins[i]);
-        // const end = formatDuration(bins[i+1]); 
-        return start; // فعلاً فقط نقطه شروع را نشان می‌دهیم تا شلوغ نشود (تولتیپ بازه کامل را نشان می‌دهد)
-    });
+    const categories = counts.map((_, i) => formatDuration(bins[i]));
     
-    // پیدا کردن ایندکس
     let index = bins.findIndex((bin, i) => {
         if (i === bins.length - 1) return duration >= bin;
         return duration >= bin && duration < bins[i+1];
@@ -87,7 +81,6 @@ export default function EdgeDurationChart({
     return {
         series: [{ name: 'تعداد پرونده‌ها', data: counts }],
         categories,
-        // داده‌های اضافه برای استفاده در تولتیپ و Annotation
         bins, 
         selectedIndex: index,
         annotationX: categories[index],
@@ -99,8 +92,7 @@ export default function EdgeDurationChart({
     chart: {
         type: 'area',
         toolbar: { show: false },
-        fontFamily: 'inherit',
-        sparkline: { enabled: false }, // حتماً باید false باشد تا محورها دیده شوند
+        sparkline: { enabled: false },
         animations: { enabled: true },
         parentHeightOffset: 0,
         zoom: { enabled: false }
@@ -120,20 +112,32 @@ export default function EdgeDurationChart({
     },
     colors: ['#64748b'],
     dataLabels: { enabled: false },
-    // --- تنظیمات مهم محور X ---
     xaxis: {
-        type: 'category', // <--- این خط مشکل نمایش اعداد صحیح را حل می‌کند
+        type: 'category',
         categories: chartConfig?.categories || [],
         labels: { 
             show: true,
             rotate: -45,
-            style: { fontSize: '9px', colors: '#94a3b8', fontFamily: 'inherit' },
+            style: { fontSize: '9px', colors: '#94a3b8' },
             trim: true,
             maxHeight: 40,
-            // فقط هر چند تا یکی را نشان بده تا محور شلوغ نشود
-            formatter: (val) => val 
+            // --- تغییر اصلی: مدیریت هوشمند لیبل‌ها ---
+            formatter: (val, timestamp, opts) => {
+                const index = opts?.i;
+                if (typeof index === 'undefined') return val;
+
+                const total = chartConfig?.categories.length || 0;
+                
+                if (total < 8) return val;
+
+                const step = Math.ceil(total / 6);
+
+                if (index % step === 0) return val;
+                
+                return '';
+            }
         },
-        tickAmount: 5, // تعداد تیک‌ها را محدود کن
+        tickAmount: 6,
         axisBorder: { show: false },
         axisTicks: { show: false },
         tooltip: { enabled: false },
@@ -143,7 +147,7 @@ export default function EdgeDurationChart({
         show: true,
         labels: { 
             show: true,
-            style: { fontSize: '9px', colors: '#94a3b8', fontFamily: 'inherit' },
+            style: { fontSize: '9px', colors: '#94a3b8' },
             formatter: (val) => val.toFixed(0),
             offsetX: -5
         },
@@ -156,19 +160,29 @@ export default function EdgeDurationChart({
     tooltip: {
         theme: 'light',
         fixed: { enabled: false },
-        x: { 
-            show: true, 
-            // در تولتیپ بازه کامل را نشان می‌دهیم
-            formatter: (_val, { dataPointIndex, w }) => {
-                if (!chartConfig?.bins) return _val;
-                const i = dataPointIndex;
-                const start = formatDuration(chartConfig.bins[i]);
-                const end = formatDuration(chartConfig.bins[i+1]);
-                return `بازه: ${start} تا ${end}`;
+        // --- اصلاح تولتیپ به صورت راست‌چین ---
+        custom: ({ series, seriesIndex, dataPointIndex, w }) => {
+            const value = series[seriesIndex][dataPointIndex];
+            
+            // پیدا کردن لیبل بازه زمانی
+            let label = w.globals.labels[dataPointIndex];
+            if (chartConfig?.bins) {
+                const start = formatDuration(chartConfig.bins[dataPointIndex]);
+                const end = formatDuration(chartConfig.bins[dataPointIndex + 1]);
+                label = `بازه: ${start} تا ${end}`;
             }
-        },
-        y: { 
-            title: { formatter: () => 'تعداد پرونده:' } 
+
+            return `
+                <div class="px-3 py-2 bg-white border border-slate-200 shadow-lg rounded-lg text-right font-vazir" style="direction: rtl;">
+                    <div class="text-[10px] text-slate-500 mb-1 border-b border-slate-100 pb-1">
+                        ${label}
+                    </div>
+                    <div class="flex items-center justify-between gap-3 text-xs">
+                        <span class="text-slate-600 font-medium">تعداد پرونده:</span>
+                        <span class="font-bold text-slate-700" style=" direction: ltr;">${value}</span>
+                    </div>
+                </div>
+            `;
         },
         marker: { show: true }
     },
@@ -188,7 +202,6 @@ export default function EdgeDurationChart({
                     padding: { left: 4, right: 4, top: 2, bottom: 2 },
                     fontWeight: 'bold',
                     borderRadius: 2,
-                    fontFamily: 'inherit'
                 },
                 text: 'پرونده انتخابی',
                 orientation: 'horizontal',
@@ -199,7 +212,42 @@ export default function EdgeDurationChart({
     }
   };
 
-  if (isLoading) return <div className="h-24 w-full animate-pulse bg-slate-50 rounded-md mt-2"></div>;
+  // --- Improved Skeleton Loading UI ---
+  if (isLoading) {
+    return (
+      <div className="mt-3 pt-3 border-t border-slate-100 animate-pulse">
+        {/* Title Placeholder */}
+        <div className="flex items-center gap-2 mb-3">
+            <div className="w-3 h-3 bg-slate-200 rounded-full"></div>
+            <div className="w-28 h-2.5 bg-slate-200 rounded"></div>
+        </div>
+
+        {/* Chart Area Placeholder */}
+        <div className="h-28 w-full bg-slate-50 rounded-lg relative overflow-hidden">
+            {/* Shimmer Effect */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent -translate-x-full animate-[shimmer_1.5s_infinite] z-10"></div>
+            
+            {/* Mocking Shapes (Fake bars/area) */}
+            <div className="absolute bottom-0 left-4 w-6 h-12 bg-slate-200 rounded-t opacity-60"></div>
+            <div className="absolute bottom-0 left-12 w-6 h-20 bg-slate-200 rounded-t opacity-60"></div>
+            <div className="absolute bottom-0 left-20 w-6 h-8 bg-slate-200 rounded-t opacity-60"></div>
+            <div className="absolute bottom-0 right-16 w-6 h-16 bg-slate-200 rounded-t opacity-60"></div>
+            <div className="absolute bottom-0 right-6 w-6 h-10 bg-slate-200 rounded-t opacity-60"></div>
+            
+            {/* Base line */}
+            <div className="absolute bottom-0 w-full h-1 bg-slate-200"></div>
+        </div>
+
+        {/* Labels Placeholder */}
+        <div className="flex justify-between px-2 mt-2">
+            <div className="w-8 h-2 bg-slate-100 rounded"></div>
+            <div className="w-8 h-2 bg-slate-100 rounded"></div>
+            <div className="w-8 h-2 bg-slate-100 rounded"></div>
+        </div>
+      </div>
+    );
+  }
+
   if (!chartConfig) return null;
 
   return (
@@ -208,7 +256,6 @@ export default function EdgeDurationChart({
             <Activity size={12} />
             <span>توزیع زمان در این مرحله</span>
         </div>
-        {/* کانتینر نمودار */}
         <div className="h-32 w-full dir-ltr -ml-2">
             <Chart 
                 options={options} 

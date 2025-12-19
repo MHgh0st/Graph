@@ -83,6 +83,7 @@ export default function Filters({
         <div className="w-full space-y-4" dir="rtl">
           {/* آکاردئون با استایل مدرن و بدون کادر */}
           <Accordion 
+            keepContentMounted
             selectionMode='multiple' 
             defaultSelectedKeys={['dateRangeFilter']} 
             variant="light" // تغییر به light برای حذف کادر پیش‌فرض

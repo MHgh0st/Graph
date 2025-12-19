@@ -21,8 +21,7 @@ import { StyledSmoothStepEdge } from "./graph/ui/StyledSmoothStepEdge";
 import { NodeTooltip } from "./graph/ui/NodeTooltip";
 import EdgeTooltip from "./graph/ui/EdgeTooltip";
 import CustomNode from "./graph/ui/CustomNode";
-import CaseDistributionCharts from "./graph/ui/CaseDistributionCharts";
-import type { Path, NodeTooltipType, ExtendedPath, SidebarTab, SearchCaseIdsData, FilterTypes } from "src/types/types";
+import type { Path, NodeTooltipType, ExtendedPath, SidebarTab, FilterTypes } from "src/types/types";
 
 interface UtilsProps {
   GraphLayout: {
@@ -75,7 +74,6 @@ interface GraphProps {
   utils: UtilsProps;
   filteredNodeIds?: Set<string>;
   activeSideBar?: SidebarTab
-  searchResult?: SearchCaseIdsData | null;
 }
 
 const defaultEdgeOptions = {
@@ -103,7 +101,6 @@ export default function Graph({
   utils,
   filteredNodeIds,
   activeSideBar,
-  searchResult,
   filePath,
   filters
 }: GraphProps) {
@@ -444,16 +441,6 @@ export default function Graph({
             />
           </Card>
         )}
-
-       {activeSideBar === 'SearchCaseIds' && (
-        <Card className="absolute z-10 bottom-4 left-1/2 -translate-x-1/2 min-w-[95%] shadow-xl">
-          <CaseDistributionCharts 
-                    searchResult={searchResult}
-                    filePath={filePath}
-                    filters={filters}
-                />
-        </Card>
-       )} 
 
         <ReactFlow
           nodes={nodesForRender}

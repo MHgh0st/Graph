@@ -58,7 +58,6 @@ function App() {
   const [selectedPathIndex, setSelectedPathIndex] = useState<number | null>(
     null
   );
-  const [searchResultData, setSearchResultData] = useState<SearchCaseIdsData | null>(null);
 
   const [filters, setFilters] = useState<FilterTypes>();
 
@@ -180,10 +179,6 @@ function App() {
     }
   };
 
-  useEffect(() => {
-    setSearchResultData(null);
-}, [sideBarActiveTab]);
-
 const sidebarFr = isSidebarCollapsed ? 1 : 3;
 const cardFr = isSideCardShow ? 6 : 0;
 const mainFr = 24 - sidebarFr - cardFr;
@@ -213,6 +208,8 @@ const mainFr = 24 - sidebarFr - cardFr;
                 isCollapsed={isSidebarCollapsed}
                 onToggle={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
                 onClickTab={(name) => {
+                  closeNodeTooltip();
+                  closeEdgeTooltip();
                   if (name === sideBarActiveTab && isSideCardShow) {
                     setIsSideCardShow(false);
                   } else {
@@ -299,7 +296,7 @@ const mainFr = 24 - sidebarFr - cardFr;
                         <Activity mode={`${sideBarActiveTab === "Outliers" ? "visible" : "hidden"}`}>
                           <OutliersCard outliers={outliers} allNodes={allNodes} selectedIndex={selectedPathIndex} onSelectOutlier={handleSelectOutlier} selectedNodeIds={selectedNodeIds}/>
                         </Activity>
-                        {sideBarActiveTab === "SearchCaseIds" && <SearchCaseIdsCard filePath={dataFilePath} filters={filters} onCaseFound={handleSelectOutlier} onSearchResult={setSearchResultData}/>}
+                        {sideBarActiveTab === "SearchCaseIds" && <SearchCaseIdsCard filePath={dataFilePath} filters={filters} onCaseFound={handleSelectOutlier}/>}
                     </div>
                   </CardBody>
                 </Card>
@@ -332,7 +329,6 @@ const mainFr = 24 - sidebarFr - cardFr;
                         <Graph
                             activeSideBar={sideBarActiveTab}
                             filteredNodeIds={selectedNodeIds}
-                            searchResult={searchResultData}
                             filePath={dataFilePath}
                             filters={filters}
                             className="w-full h-full bg-slate-50" // پس زمینه گراف

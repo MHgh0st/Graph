@@ -119,8 +119,8 @@ export default function SideBar({
     { title: "فیلتر ها", icon: SlidersHorizontal, name: "Filter" },
     { title: "مسیریابی", icon: LineSquiggle, name: "Routing" },
     { title: "گره ها", icon: Workflow, name: "Nodes" },
+    { title: "بررسی تک پرونده", icon: FolderSearch, name: "SearchCaseIds" },
     { title: "فرآیندکاوی", icon: RouteOff, name: "Outliers" },
-    { title: "جستجوی پرونده", icon: FolderSearch, name: "SearchCaseIds" },
     { title: "تنظیمات", icon: Settings, name: "Settings" },
   ];
 

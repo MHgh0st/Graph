@@ -41,6 +41,7 @@ export interface GraphData {
   Tooltip_Mean_Time: string;
   Weight_Value: number;
   Edge_Label: string;
+  Case_Count: number;
 }
 export interface Variant {
   Variant_Path: string[];

@@ -1,9 +1,10 @@
-import { useEffect, useState, useMemo } from "react";
+import { useState } from "react";
 import { NumberInput } from "@heroui/number-input";
 import { Button } from "@heroui/button";
 import { Chip } from "@heroui/chip";
 import { Divider } from "@heroui/divider";
 import { ScrollShadow } from "@heroui/scroll-shadow";
+import { Accordion, AccordionItem } from "@heroui/accordion"; // ایمپورت آکاردئون
 import { 
   Search, 
   XCircle, 
@@ -13,16 +14,17 @@ import {
   FolderSearch,
   FileText,
   ArrowDown,
+  TrendingUp, 
+  TrendingDown, 
+  AlertCircle, 
+  Info,
   Activity,
-  BarChart2,
-  TrendingUp,   // آیکون برای روند افزایشی (کندتر)
-  TrendingDown, // آیکون برای روند کاهشی (سریع‌تر)
-  AlertCircle,  // آیکون هشدار
-  Info          // آیکون اطلاعات
+  ListStart // آیکون برای تایم‌لاین
 } from "lucide-react";
 
-import type { FilterTypes, SearchCaseIdsData, ExtendedPath, EdgeStatisticsGlobalData } from "src/types/types";
+import type { FilterTypes, SearchCaseIdsData, ExtendedPath } from "src/types/types";
 import ProcessData from "../../utils/ProcessData";
+import CaseDistributionCharts from "../graph/ui/CaseDistributionCharts";
 
 interface SearchCaseIdsCardProps {
   filters: FilterTypes;
@@ -35,13 +37,12 @@ export default function SearchCaseIdsCard({
   filters,
   filePath,
   onCaseFound,
-  onSearchResult
+  onSearchResult,
 }: SearchCaseIdsCardProps) {
   const [caseIdInput, setCaseIdInput] = useState<number>();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [searchResult, setSearchResult] = useState<SearchCaseIdsData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [globalStatisticsData, setGlobalStatisticsData] = useState<EdgeStatisticsGlobalData | null>(null);
 
   const formatDuration = (seconds: number) => {
     if (seconds < 60) return `${seconds.toFixed(0)} ثانیه`;
@@ -63,14 +64,10 @@ export default function SearchCaseIdsCard({
     try {
       const response = (await ProcessData(filePath, filters, caseIdNum)) as SearchCaseIdsData;
       setSearchResult(response);
-
-      if (onSearchResult) {
-         onSearchResult(response);
-      }
+      
+      if (onSearchResult) onSearchResult(response);
 
       if (response.found && response.data && response.data.nodes.length > 0) {
-        
-
         if (onCaseFound) {
           const edgeStats: Record<string, { sum: number; count: number }> = {};
           const nodes = response.data.nodes;
@@ -120,8 +117,6 @@ export default function SearchCaseIdsCard({
     if (e.key === "Enter") submit();
   };
 
-
-  // --- Helper to render Performance Stats ---
   const renderPerformanceStats = () => {
     if (!searchResult?.data?.position_stats) return null;
     
@@ -129,7 +124,6 @@ export default function SearchCaseIdsCard({
     const isCritical = stats.duration_percentile > 80;
     const isWarning = stats.duration_percentile > 50 && stats.duration_percentile <= 80;
     
-    // تعیین استایل و آیکون بر اساس وضعیت
     let styleClass = "bg-slate-50 text-slate-600 border-slate-200";
     let icon = <Info size={16} />;
     let title = "عملکرد نرمال";
@@ -206,12 +200,13 @@ export default function SearchCaseIdsCard({
 
           <Divider className="bg-slate-100" />
 
-          <div className="flex-1 min-h-0 relative bg-white rounded-xl border border-slate-100 overflow-x-hidden overflow-y-auto flex flex-col">
+          {/* کانتینر اصلی نتایج با اسکرول */}
+          <div className="flex-1 min-h-0 relative bg-slate-50/50 rounded-xl overflow-x-hidden overflow-y-auto flex flex-col">
             {searchResult?.found && searchResult.data ? (
-              <div className="flex flex-col h-full">
+              <div className="flex flex-col h-full gap-2 p-1">
                 
-                {/* Result Header */}
-                <div className="p-4 bg-white border-b border-slate-100 shrink-0">
+                {/* بخش هدر (اطلاعات ثابت) */}
+                <div className="p-4 bg-white border border-slate-100 rounded-2xl shadow-sm shrink-0">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                         <CheckCircle2 size={18} className="text-emerald-500" />
@@ -220,7 +215,6 @@ export default function SearchCaseIdsCard({
                     <Chip size="sm" variant="flat" className="bg-slate-100 text-slate-600 border border-slate-200 shadow-sm text-xs font-mono h-6">Case #{searchResult.data.case_id}</Chip>
                   </div>
                   
-                  {/* Stats Grid */}
                   <div className="grid grid-cols-2 gap-2">
                     <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 flex items-center gap-2">
                         <div className="p-1.5 bg-white text-emerald-600 rounded-md border border-slate-100 shadow-sm"><Clock size={14} /></div>
@@ -237,46 +231,108 @@ export default function SearchCaseIdsCard({
                         </div>
                     </div>
                   </div>
-
-                  {/* --- NEW: Performance Insight Card --- */}
-                  {renderPerformanceStats()}
-
                 </div>
 
-                {/* Timeline Path */}
-                <ScrollShadow className="flex-1 p-4 bg-slate-50/30 min-h-[400px]">
-                  <div className="relative pl-2 pr-4">
-                    <div className="absolute top-3 bottom-3 right-[7px] w-0.5 bg-slate-200" />
-                    {searchResult.data.nodes.map((node, index) => {
-                        const isLast = index === searchResult.data!.nodes.length - 1;
-                        const isFirst = index === 0;
-                        const duration = !isLast ? searchResult.data!.edge_durations[index] : null;
-                        return (
-                            <div key={index} className="relative">
-                                <div className="flex items-start gap-3 relative z-10">
-                                    <div className={`w-4 h-4 rounded-full border-2 shrink-0 bg-white mt-1 ${isFirst ? 'border-emerald-500 ring-2 ring-emerald-100' : isLast ? 'border-rose-500 ring-2 ring-rose-100' : 'border-blue-400'}`} />
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-2 flex-wrap">
-                                            <span className={`text-sm ${isFirst || isLast ? 'font-bold text-slate-800' : 'font-medium text-slate-600'}`}>{node}</span>
-                                            {isFirst && <span className="text-[9px] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded-md">شروع</span>}
-                                            {isLast && <span className="text-[9px] px-1.5 py-0.5 bg-rose-100 text-rose-700 rounded-md">پایان</span>}
-                                        </div>
-                                    </div>
-                                </div>
-                                {!isLast && duration !== undefined && duration !== null && (
-                                    <div className="flex justify-start pr-[0.15rem] my-3 relative z-20">
-                                        <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-slate-200 shadow-sm text-[10px] text-slate-500 font-mono hover:border-blue-300 transition-colors">
-                                            <span className="text-slate-300"><ArrowDown size={10} /></span>
-                                            {formatDuration(duration)}
-                                        </div>
-                                    </div>
-                                )}
-                                {!isLast && (duration === undefined || duration === null) && (<div className="h-6" />)}
+                {/* آکاردئون‌ها */}
+                <Accordion 
+                    keepContentMounted
+                    defaultExpandedKeys={["1"]} // آکاردئون نمودارها پیش‌فرض باز است
+                    variant="splitted"
+                    itemClasses={{
+                        base: "group bg-white border border-slate-100 shadow-sm rounded-2xl px-0",
+                        title: "text-sm font-bold text-slate-700",
+                        trigger: "py-3 px-4",
+                        indicator: "text-slate-400",
+                        content: "pb-4 px-1" // فضای داخلی محتوا
+                    }}
+                >
+                    {/* بخش ۱: تحلیل و نمودار */}
+                    <AccordionItem 
+                        key="1" 
+                        aria-label="Charts" 
+                        
+                        className="overflow-y-auto"
+                        title={
+                            <div className="flex items-center gap-2">
+                                <Activity size={18} className="text-blue-500" />
+                                <span>تحلیل و نمودارها</span>
                             </div>
-                        );
-                    })}
-                  </div>
-                </ScrollShadow>
+                        }
+                    >
+                        <div className="px-1 flex flex-col gap-4">
+                            {/* Insight Card */}
+                            {renderPerformanceStats()}
+                            
+                            {/* Distribution Charts */}
+                            {/* نکته: ارتفاع فیکس دادیم تا اسکرول داخلی نخورد و با اسکرول والد حرکت کند */}
+                            <div className="h-[450px] w-full">
+                                <CaseDistributionCharts 
+                                    searchResult={searchResult} 
+                                    filePath={filePath} 
+                                    filters={filters}
+                                />
+                            </div>
+                        </div>
+                    </AccordionItem>
+
+                    {/* بخش ۲: مسیر زمانی (Timeline) */}
+                    <AccordionItem 
+                        key="2" 
+                        aria-label="Timeline" 
+                        title={
+                            <div className="flex items-center gap-2">
+                                <ListStart size={18} className="text-slate-500" />
+                                <span>مسیر زمانی پرونده</span>
+                            </div>
+                        }
+                    >
+                        {/* لیست تایم‌لاین */}
+                        <div className="px-2">
+                            <div className="relative pl-2 pr-4 py-2 border-r-2 border-slate-100 mr-2">
+                                {searchResult.data.nodes.map((node, index) => {
+                                    const isLast = index === searchResult.data!.nodes.length - 1;
+                                    const isFirst = index === 0;
+                                    const duration = !isLast ? searchResult.data!.edge_durations[index] : null;
+                                    return (
+                                        <div key={index} className="relative mb-1">
+                                            {/* خط اتصال */}
+                                            {!isLast && <div className="absolute top-4 bottom-[-4px] right-[6.5px] w-0.5 bg-slate-200" />}
+                                            
+                                            <div className="flex items-start gap-3 relative z-10">
+                                                {/* دایره نشانگر */}
+                                                <div className={`w-4 h-4 rounded-full border-2 shrink-0 bg-white mt-1 z-20 
+                                                    ${isFirst ? 'border-emerald-500 ring-2 ring-emerald-50' : 
+                                                      isLast ? 'border-rose-500 ring-2 ring-rose-50' : 'border-blue-400'}`} 
+                                                />
+                                                
+                                                <div className="flex-1 min-w-0 pb-4">
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <span className={`text-sm ${isFirst || isLast ? 'font-bold text-slate-800' : 'font-medium text-slate-600'}`}>
+                                                            {node}
+                                                        </span>
+                                                        {isFirst && <span className="text-[9px] px-1.5 py-0.5 bg-emerald-100 text-emerald-700 rounded-md">شروع</span>}
+                                                        {isLast && <span className="text-[9px] px-1.5 py-0.5 bg-rose-100 text-rose-700 rounded-md">پایان</span>}
+                                                    </div>
+
+                                                    {/* نمایش زمان */}
+                                                    {!isLast && duration !== undefined && (
+                                                        <div className="flex justify-start mt-2">
+                                                            <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-50 border border-slate-200 text-[10px] text-slate-500 font-mono">
+                                                                <ArrowDown size={10} />
+                                                                {formatDuration(duration)}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </AccordionItem>
+                </Accordion>
+
               </div>
             ) : (
                 <div className="flex flex-col items-center justify-center h-full gap-3 p-6 text-center opacity-60">

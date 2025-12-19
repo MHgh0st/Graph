@@ -167,7 +167,7 @@ export const useGraphInteraction = (
         // --- تغییر: استفاده از مقادیر جایگزین (Override) در صورت وجود ---
         
         // ۱. تعداد (اگر اورراید شده باشد، مثلا تعداد عبور در مسیر)
-        const labelValue = overrides?.label !== undefined ? overrides.label : selectedEdge.label;
+        const labelValue = overrides?.label !== undefined ? overrides.label : selectedEdge.data?.Case_Count;
         if (labelValue) {
           dataToShow.push({ label: "تعداد", value: labelValue });
         }

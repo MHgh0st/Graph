@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import Chart from "react-apexcharts";
 import { ApexOptions } from "apexcharts";
 import { Clock, BarChart2, Activity } from "lucide-react";
+import { Button } from "@heroui/button";
 import type { SearchCaseIdsData, EdgeStatisticsGlobalData, FilterTypes } from "src/types/types";
 import GetEdgeStatisticsData from "../../../utils/GetEdgeStatisticsData";
 
@@ -11,6 +12,8 @@ interface CaseDistributionChartsProps {
   filters: FilterTypes;
 }
 
+type ChartType = 'time' | 'steps';
+
 export default function CaseDistributionCharts({
   searchResult,
   filePath,
@@ -18,8 +21,8 @@ export default function CaseDistributionCharts({
 }: CaseDistributionChartsProps) {
   const [globalStatisticsData, setGlobalStatisticsData] = useState<EdgeStatisticsGlobalData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeChart, setActiveChart] = useState<ChartType>('time');
 
-  // 1. Fetch Global Statistics inside the component
   useEffect(() => {
     let isMounted = true;
     const fetchStats = async () => {
@@ -59,7 +62,6 @@ export default function CaseDistributionCharts({
     return `${(seconds / 86400).toFixed(1)} روز`;
   };
 
-  // 2. Prepare Chart Data
   const chartData = useMemo(() => {
     if (!globalStatisticsData || !searchResult?.data) return null;
 
@@ -97,19 +99,18 @@ export default function CaseDistributionCharts({
             categories: timeCategories,
             annotationX: timeCategories[timeIndex],
             myValueFormatted: formatDuration(caseDuration),
-            bins: timeBins // اضافه کردن bins برای دسترسی در تولتیپ
+            bins: timeBins
         },
         steps: {
             series: [{ name: 'تعداد پرونده‌ها', data: stepCounts }],
             categories: stepCategories,
             annotationX: stepCategories[stepIndex],
             myValue: caseSteps,
-            bins: stepBins // اضافه کردن bins برای دسترسی در تولتیپ
+            bins: stepBins
         }
     };
   }, [globalStatisticsData, searchResult]);
 
-  // 3. Chart Options Helper
   const getChartOptions = (
       categories: string[], 
       annotationX: string, 
@@ -117,14 +118,14 @@ export default function CaseDistributionCharts({
       xAxisTitle: string,
       yAxisTitle: string,
       annotationLabel: string,
-      tooltipFormatter?: (index: number) => string // اضافه کردن فرمتر اختصاصی
+      tooltipFormatter?: (index: number) => string
   ): ApexOptions => ({
     chart: {
         type: 'area',
         toolbar: { show: false },
-        fontFamily: 'inherit',
         animations: { enabled: true, easing: 'easeinout', speed: 800 },
         parentHeightOffset: 0,
+        width: '100%'
     },
     stroke: { curve: 'smooth', width: 2, colors: [color] },
     fill: {
@@ -136,8 +137,29 @@ export default function CaseDistributionCharts({
     },
     dataLabels: { enabled: false },
     xaxis: {
+        type: 'category', 
         categories: categories,
-        labels: { show: true, rotate: -45, hideOverlappingLabels: true, style: { fontSize: '10px', colors: '#64748b', fontFamily: 'inherit' }, trim: true, maxHeight: 60 },
+        labels: { 
+            show: true, 
+            rotate: -45, 
+            hideOverlappingLabels: false, 
+            style: { fontSize: '10px', colors: '#64748b'}, 
+            trim: true, 
+            maxHeight: 60,
+            formatter: (val, timestamp, opts) => {
+                const index = opts?.i;
+                if (typeof index === 'undefined') return val;
+                
+                const total = categories.length;
+                if (total < 12) return val; 
+
+                const step = Math.ceil(total / 8);
+                
+                if (index % step === 0) return val;
+                return '';
+            }
+        },
+        tickAmount: 8,
         axisBorder: { show: true, color: '#e2e8f0' },
         axisTicks: { show: true, color: '#e2e8f0' },
         title: { text: xAxisTitle, style: { fontSize: '11px', color: '#94a3b8', fontWeight: 500 }, offsetY: 5 },
@@ -145,75 +167,79 @@ export default function CaseDistributionCharts({
     },
     yaxis: {
         show: true,
-        labels: { style: { fontSize: '10px', colors: '#64748b', fontFamily: 'inherit' }, formatter: (val) => val >= 1000 ? `${(val/1000).toFixed(1)}k` : val.toFixed(0) },
+        labels: { style: { fontSize: '10px', colors: '#64748b' }, formatter: (val) => val >= 1000 ? `${(val/1000).toFixed(1)}k` : val.toFixed(0) },
         title: { text: yAxisTitle, style: { fontSize: '11px', color: '#94a3b8', fontWeight: 500 }, rotate: -90, offsetX: 0 }
     },
     grid: { show: true, borderColor: '#f1f5f9', strokeDashArray: 4, padding: { top: 10, right: 20, bottom: 10, left: 20 } },
+    
+    // --- اصلاح تولتیپ برای نمایش راست‌چین و زیبا ---
     tooltip: { 
-        theme: 'light', 
-        y: { formatter: (val) => `${val} پرونده` }, 
-        x: { 
-            show: true,
-            // لاجیک فرمتر تولتیپ
-            formatter: (val, { dataPointIndex }) => {
-                if (tooltipFormatter && typeof dataPointIndex === 'number') {
-                    return tooltipFormatter(dataPointIndex);
-                }
-                return val;
+        theme: 'light',
+        custom: ({ series, seriesIndex, dataPointIndex, w }) => {
+            const value = series[seriesIndex][dataPointIndex];
+            let label = w.globals.labels[dataPointIndex];
+            
+            // استفاده از فرمتر سفارشی اگر وجود داشته باشد
+            if (tooltipFormatter) {
+                label = tooltipFormatter(dataPointIndex);
             }
-        } 
+
+            // ساخت HTML سفارشی برای تولتیپ
+            return `
+                <div class="px-3 py-2 bg-white border border-slate-200 shadow-lg rounded-lg text-right font-vazir" style="direction: rtl;">
+                    <div class="text-[10px] text-slate-500 mb-1 border-b border-slate-100 pb-1">
+                        ${label}
+                    </div>
+                    <div class="flex items-center justify-between gap-3 text-xs">
+                        <span class="text-slate-600 font-medium">تعداد پرونده:</span>
+                        <span class="font-bold" style="color: ${color}; direction: ltr;">${value}</span>
+                    </div>
+                </div>
+            `;
+        }
     },
+
     annotations: {
         xaxis: [{
             x: annotationX, borderColor: '#ef4444', strokeDashArray: 0, borderWidth: 2, opacity: 1,
             label: {
-                borderColor: '#ef4444', style: { color: '#fff', background: '#ef4444', fontSize: '11px', padding: { left: 6, right: 6, top: 4, bottom: 4 }, fontWeight: 'bold', borderRadius: 4, fontFamily: 'inherit' },
+                borderColor: '#ef4444', style: { color: '#fff', background: '#ef4444', fontSize: '11px', padding: { left: 6, right: 6, top: 4, bottom: 4 }, fontWeight: 'bold', borderRadius: 4 },
                 text: annotationLabel, orientation: 'horizontal', position: 'top', offsetY: -15
             }
         }]
     }
   });
 
-  // --- 4. Beautiful Skeleton Loading UI ---
+  // --- Beautiful Skeleton Loading UI ---
   if (isLoading) {
     return (
-      <div className="flex flex-col gap-4 p-4 w-full h-full animate-pulse">
-        {/* Title Skeleton */}
-        <div className="flex items-center gap-2 mb-2">
-            <div className="w-5 h-5 bg-slate-200 rounded-md"></div>
-            <div className="h-4 bg-slate-200 rounded w-40"></div>
+      <div className="flex flex-col gap-3 p-2 w-full h-full animate-pulse">
+        {/* Header Skeleton */}
+        <div className="flex items-center justify-between px-2">
+            <div className="flex items-center gap-2">
+                <div className="w-5 h-5 bg-slate-200 rounded-md"></div>
+                <div className="h-4 bg-slate-200 rounded w-24"></div>
+            </div>
+            <div className="flex gap-1">
+                <div className="h-7 w-16 bg-slate-200 rounded-lg"></div>
+                <div className="h-7 w-16 bg-slate-200 rounded-lg"></div>
+            </div>
         </div>
 
-        {/* Charts Grid Skeleton */}
-        <div className="grid grid-cols-2 gap-4 h-full">
-            {[1, 2].map((i) => (
-                <div key={i} className="bg-white rounded-xl border border-slate-100 p-4 h-64 flex flex-col gap-4">
-                    {/* Card Header Skeleton */}
-                    <div className="flex justify-between items-center">
-                        <div className="h-3 bg-slate-200 rounded w-24"></div>
-                        <div className="h-3 bg-slate-100 rounded w-8"></div>
-                    </div>
-                    {/* Chart Area Skeleton */}
-                    <div className="flex-1 flex items-end gap-1 pb-2">
-                        {/* Fake bars/area visual */}
-                        <div className="w-full bg-slate-50 rounded-lg h-full relative overflow-hidden">
-                             {/* Gradient overlay for shimmer effect */}
-                             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-100 to-transparent -translate-x-full animate-[shimmer_1.5s_infinite]"></div>
-                             
-                             {/* Mocking a graph shape */}
-                             <div className="absolute bottom-0 left-0 right-0 h-[60%] bg-slate-100 rounded-t-lg opacity-50"></div>
-                             <div className="absolute bottom-0 left-0 right-0 h-[40%] bg-slate-200 rounded-t-lg opacity-50"></div>
-                        </div>
-                    </div>
-                    {/* X-Axis labels skeleton */}
-                    <div className="flex justify-between gap-2 px-2">
-                        <div className="h-2 bg-slate-100 rounded w-8"></div>
-                        <div className="h-2 bg-slate-100 rounded w-8"></div>
-                        <div className="h-2 bg-slate-100 rounded w-8"></div>
-                        <div className="h-2 bg-slate-100 rounded w-8"></div>
-                    </div>
-                </div>
-            ))}
+        {/* Chart Skeleton */}
+        <div className="flex-1 bg-white rounded-xl border border-slate-100 p-4 relative overflow-hidden">
+             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-50 to-transparent -translate-x-full animate-[shimmer_1.5s_infinite] z-10"></div>
+             <div className="flex items-end justify-between h-full gap-2 pt-8 pb-2">
+                 <div className="w-full bg-slate-100 rounded-t-md h-[30%]"></div>
+                 <div className="w-full bg-slate-100 rounded-t-md h-[50%]"></div>
+                 <div className="w-full bg-slate-100 rounded-t-md h-[70%]"></div>
+                 <div className="w-full bg-slate-100 rounded-t-md h-[40%]"></div>
+                 <div className="w-full bg-slate-100 rounded-t-md h-[60%]"></div>
+                 <div className="w-full bg-slate-100 rounded-t-md h-[80%]"></div>
+                 <div className="w-full bg-slate-100 rounded-t-md h-[45%]"></div>
+                 <div className="w-full bg-slate-100 rounded-t-md h-[25%]"></div>
+             </div>
+             <div className="absolute bottom-2 left-4 right-4 h-1 bg-slate-200"></div>
         </div>
       </div>
     );
@@ -222,71 +248,83 @@ export default function CaseDistributionCharts({
   if (!chartData) return null;
 
   return (
-    <div className="flex flex-col gap-4 p-4 w-full h-full">
-        <div className="flex items-center gap-2 mb-2">
-            <Activity size={18} className="text-slate-500"/>
-            <span className="text-sm font-bold text-slate-700">تحلیل توزیع آماری پرونده</span>
+    <div className="flex flex-col gap-3 p-2 w-full h-full">
+        {/* --- Header & Tabs --- */}
+        <div className="flex items-center justify-between px-2">
+            <div className="flex items-center gap-2 text-slate-700">
+                <Activity size={18} className="text-blue-500"/>
+                <span className="text-sm font-bold">تحلیل توزیع</span>
+            </div>
+            
+            <div className="flex bg-slate-100 p-1 rounded-xl">
+                <Button 
+                    size="sm" 
+                    variant={activeChart === 'time' ? "solid" : "light"}
+                    color={activeChart === 'time' ? "success" : "default"}
+                    className={`h-7 text-xs font-medium rounded-lg ${activeChart === 'time' ? "bg-white text-emerald-600 shadow-sm" : "text-slate-500"}`}
+                    startContent={<Clock size={14} />}
+                    onPress={() => setActiveChart('time')}
+                >
+                    زمان
+                </Button>
+                <Button 
+                    size="sm"
+                    variant={activeChart === 'steps' ? "solid" : "light"}
+                    color={activeChart === 'steps' ? "primary" : "default"}
+                    className={`h-7 text-xs font-medium rounded-lg ${activeChart === 'steps' ? "bg-white text-blue-600 shadow-sm" : "text-slate-500"}`}
+                    startContent={<BarChart2 size={14} />}
+                    onPress={() => setActiveChart('steps')}
+                >
+                    مراحل
+                </Button>
+            </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 h-full">
+        {/* --- Chart Area --- */}
+        <div className="flex-1 bg-white rounded-xl border border-slate-200 p-1 shadow-sm relative overflow-hidden">
+            
             {/* Time Chart */}
-            <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm relative flex flex-col h-64">
-                <div className="flex items-center justify-between mb-2 shrink-0">
-                    <span className="text-xs font-bold text-slate-600 flex items-center gap-1">
-                        <Clock size={14} className="text-emerald-500"/> توزیع زمان کل
-                    </span>
-                </div>
-                <div className="flex-1 w-full dir-ltr min-h-0">
-                    <Chart 
-                        options={getChartOptions(
-                            chartData.time.categories, 
-                            chartData.time.annotationX, 
-                            '#10b981', 
-                            'بازه زمانی', 
-                            'تعداد', 
-                            'پرونده شما',
-                            // فرمتر بازه زمانی
-                            (i) => {
-                                const bins = chartData.time.bins;
-                                return `بازه: ${formatDuration(bins[i])} تا ${formatDuration(bins[i+1])}`;
-                            }
-                        )}
-                        series={chartData.time.series}
-                        type="area"
-                        height="100%"
-                        width="100%"
-                    />
-                </div>
+            <div className={`w-full h-full transition-opacity duration-300 ${activeChart === 'time' ? 'opacity-100 block' : 'opacity-0 hidden'}`}>
+                <Chart 
+                    options={getChartOptions(
+                        chartData.time.categories, 
+                        chartData.time.annotationX, 
+                        '#10b981', 
+                        'بازه زمانی', 
+                        'تعداد پرونده', 
+                        'پرونده شما',
+                        (i) => {
+                            const bins = chartData.time.bins;
+                            return `بازه: ${formatDuration(bins[i])} تا ${formatDuration(bins[i+1])}`;
+                        }
+                    )}
+                    series={chartData.time.series}
+                    type="area"
+                    height="100%"
+                    width="100%"
+                />
             </div>
 
             {/* Steps Chart */}
-            <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm relative flex flex-col h-64">
-                <div className="flex items-center justify-between mb-2 shrink-0">
-                    <span className="text-xs font-bold text-slate-600 flex items-center gap-1">
-                        <BarChart2 size={14} className="text-blue-500"/> توزیع تعداد مراحل
-                    </span>
-                </div>
-                <div className="flex-1 w-full dir-ltr min-h-0">
-                    <Chart 
-                        options={getChartOptions(
-                            chartData.steps.categories, 
-                            chartData.steps.annotationX, 
-                            '#3b82f6', 
-                            'تعداد مراحل', 
-                            'تعداد', 
-                            'پرونده شما',
-                            // فرمتر بازه مراحل
-                            (i) => {
-                                const bins = chartData.steps.bins;
-                                return `بازه: ${bins[i]} تا ${bins[i+1]}`;
-                            }
-                        )}
-                        series={chartData.steps.series}
-                        type="area"
-                        height="100%"
-                        width="100%"
-                    />
-                </div>
+            <div className={`w-full h-full transition-opacity duration-300 ${activeChart === 'steps' ? 'opacity-100 block' : 'opacity-0 hidden'}`}>
+                <Chart 
+                    options={getChartOptions(
+                        chartData.steps.categories, 
+                        chartData.steps.annotationX, 
+                        '#3b82f6', 
+                        'تعداد مراحل', 
+                        'تعداد پرونده', 
+                        'پرونده شما',
+                        (i) => {
+                            const bins = chartData.steps.bins;
+                            return `بازه: ${bins[i]} تا ${bins[i+1]}`;
+                        }
+                    )}
+                    series={chartData.steps.series}
+                    type="area"
+                    height="100%"
+                    width="100%"
+                />
             </div>
         </div>
     </div>
