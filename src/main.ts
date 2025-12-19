@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog, screen } from "electron";
 import { join } from "path";
 import started from "electron-squirrel-startup";
 import { spawn } from "child_process";
-import { type FilterTypes } from "./types/types";
+import { type FilterTypes, HistogramData, EdgeStatisticsGlobalData } from "./types/types";
 
 // Define the electron API type
 declare global {
@@ -21,6 +21,14 @@ declare global {
         startDate?: string, 
         endDate?: string
       ) => Promise<any>;
+      getEdgeStatistics: (
+        filePath: string,
+        format: "csv" | "pkl" | "parquet",
+        startDate?: string,
+        endDate?: string,
+        type?: 'global' | 'specific',
+        sourceActivity?: string,
+        targetActivity?: string ) => Promise<HistogramData | EdgeStatisticsGlobalData>;
     };
   }
 }
@@ -198,6 +206,70 @@ ipcMain.handle(
     return outputPath;
   }
 );
+
+ipcMain.handle('get-edge-statistics', async (event, filePath, format, startDate, endDate, type, sourceActivity, targetActivity) => {
+  return new Promise((resolve, reject) => {
+    const pythonPath = getPythonPath();
+
+    const args= [
+      '--input-path', filePath,
+      '--format', format,
+      '--start-date', startDate,
+      '--end-date', endDate,
+      '--get-edge-statistics', type,
+      '--source-edge-statistics', sourceActivity,
+      '--target-edge-statistics', targetActivity
+    ]
+
+    const pythonProcess = spawn(pythonPath, args, {
+      env: {
+        ...process.env,
+        PYTHONUTF8: "1",
+        PYTHONIOENCODING: "utf-8:replace",
+      },
+    });
+
+    let dataString = '';
+    let errorString = '';
+    
+    pythonProcess.stdout.setEncoding("utf8");
+    pythonProcess.stderr.setEncoding("utf8");
+
+    pythonProcess.stdout.on('data', (data) => {
+      dataString += data.toString();
+    });
+
+    pythonProcess.stderr.on('data', (data) => {
+      errorString += data.toString();
+    });
+
+    pythonProcess.on('close', (code) => {
+      if (code !== 0) {
+        console.error("Python Error:", errorString);
+        return reject(new Error(`Python script failed: ${errorString}`));
+      }
+      try {
+        const jsonData = JSON.parse(dataString);
+        resolve(jsonData);
+      } catch (parseError) {
+        reject(
+          new Error(
+            `Failed to parse Python script output as JSON: ${parseError.message}`
+          )
+        );
+      }
+    });
+
+    pythonProcess.on('error', (err) => {
+      reject(
+        new Error(
+          `Failed to execute Python script: ${err.message}. Path attempted: ${pythonPath}`
+        )
+      );
+    });
+  })
+
+});
 
 ipcMain.handle('search-case', async (event, caseId, filePath, format, startDate, endDate) => {
   return new Promise((resolve, reject) => {

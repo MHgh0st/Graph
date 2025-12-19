@@ -15,11 +15,11 @@ export interface Path {
 }
 
 export interface ExtendedPath extends Path {
-  _variantDuration?: number; // زمان دقیق محاسبه شده از واریانت
+  _variantDuration?: number; 
   _frequency?: number;
-  _fullPathNodes?: string[]; // لیست تمام گره‌های این واریانت
-  _startIndex?: number; // ایندکس گره شروع در مسیر کامل
-  _endIndex?: number; // ایندکس گره پایان در مسیر کامل
+  _fullPathNodes?: string[];
+  _startIndex?: number; 
+  _endIndex?: number; 
   _pathType?: "absolute" | "relative";
   _variantTimings?: number[];
   _specificEdgeDurations?: Record<string, number>;
@@ -63,8 +63,22 @@ export interface SearchCaseIdsData{
     nodes: string[];
     edge_durations: number[];
     total_duration: number;
-    case_id: number
+    case_id: number;
+    position_stats: {
+      duration_percentile: number;
+      is_slower_than_average: boolean;
+    }
   }
+}
+
+export interface HistogramData {
+  bins: number[];   
+  counts: number[]; 
+}
+
+export interface EdgeStatisticsGlobalData{
+  total_time: HistogramData;
+  steps: HistogramData;
 }
 
 export interface NodeTooltipType{

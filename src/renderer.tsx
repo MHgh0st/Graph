@@ -312,6 +312,7 @@ function App() {
 
                     {!isLoadingRenderer && graphData && selectedNodeIds.size > 0 && (
                         <Graph
+                            activeSideBar={sideBarActiveTab}
                             filteredNodeIds={selectedNodeIds}
                             className="w-full h-full bg-slate-50" // پس زمینه گراف
                             utils={{

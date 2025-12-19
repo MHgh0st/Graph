@@ -101,6 +101,7 @@
     "@tailwindcss/vite": "^4.1.14",
     "@types/moment-jalaali": "^0.7.9",
     "@xyflow/react": "^12.8.6",
+    "apexcharts": "^5.3.6",
     "commander": "^14.0.2",
     "d3-scale": "^4.0.2",
     "electron-squirrel-startup": "^1.0.1",
@@ -110,6 +111,7 @@
     "moment-jalaali": "^0.10.4",
     "nodejs-polars": "^0.23.4",
     "react": "^19.2.0",
+    "react-apexcharts": "^1.9.0",
     "react-dom": "^19.2.0",
     "react-virtualized": "^9.22.6",
     "tailwindcss": "^4.1.14"

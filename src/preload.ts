@@ -11,4 +11,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
   openFileDialog: () => ipcRenderer.invoke("open-file-dialog"),
   searchCase: (caseId: string, filePath: string, format: "csv" | "pkl" | "parquet", startDate?: string, endDate?: string) => 
     ipcRenderer.invoke('search-case', caseId, filePath, format, startDate, endDate),
+  getEdgeStatistics: (filePath: string, format: "csv" | "pkl" | "parquet", startDate?: string, endDate?: string, type?: 'global' | 'specific', sourceActivity?: string, targetActivity?: string ) => 
+    ipcRenderer.invoke('get-edge-statistics', filePath, format, startDate, endDate, type, sourceActivity, targetActivity),
 });

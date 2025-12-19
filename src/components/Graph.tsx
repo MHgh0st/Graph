@@ -21,7 +21,7 @@ import { StyledSmoothStepEdge } from "./graph/ui/StyledSmoothStepEdge";
 import { NodeTooltip } from "./graph/ui/NodeTooltip";
 import EdgeTooltip from "./graph/ui/EdgeTooltip";
 import CustomNode from "./graph/ui/CustomNode";
-import type { Path, NodeTooltipType, ExtendedPath } from "src/types/types";
+import type { Path, NodeTooltipType, ExtendedPath, SidebarTab } from "src/types/types";
 
 interface UtilsProps {
   GraphLayout: {
@@ -71,6 +71,7 @@ interface GraphProps {
   className?: string;
   utils: UtilsProps;
   filteredNodeIds?: Set<string>;
+  activeSideBar?: SidebarTab
 }
 
 const defaultEdgeOptions = {
@@ -97,6 +98,7 @@ export default function Graph({
   className,
   utils,
   filteredNodeIds,
+  activeSideBar
 }: GraphProps) {
   const [zoomLevel, setZoomLevel] = useState(1);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -264,6 +266,37 @@ export default function Graph({
             });
 
             if (
+            activePath._specificEdgeDurations && 
+            activePath._specificEdgeDurations[edge.id] !== undefined
+            ) {
+            // حالت جستجوی پرونده: نمایش میانگین محاسبه شده
+            const avgDuration = activePath._specificEdgeDurations[edge.id];
+            displayLabel = formatDuration(avgDuration);
+            
+            // تولتیپ هم اصلاح می‌شود
+            tooltipMeanTime = `${formatDuration(avgDuration)} (میانگین)`;
+            
+            // محاسبه زمان کل برای این یال در این پرونده (میانگین * تعداد دفعات عبور)
+            const count = activePath._fullPathNodes 
+                ? activePath._fullPathNodes.filter((_, idx) => {
+                    // منطق ساده برای شمارش تعداد عبور از این یال خاص
+                    if (idx >= activePath._fullPathNodes!.length - 1) return false;
+                    const src = activePath._fullPathNodes![idx];
+                    const trg = activePath._fullPathNodes![idx+1];
+                    return `${src}->${trg}` === edge.id;
+                  }).length
+                : 1;
+
+            tooltipTotalTime = formatDuration(avgDuration * count);
+            
+            tooltipOverride = {
+              label: 1, // تعداد پرونده ۱ است
+              meanTime: tooltipMeanTime,
+              totalTime: tooltipTotalTime,
+            };
+          }
+
+            else if (
             edgeIndices.length > 0 &&
             activePath._variantTimings &&
             activePath._variantTimings.length > 0 &&
@@ -365,7 +398,7 @@ export default function Graph({
     <div ref={containerRef} className={`${className} w-full h-full`}>
       <div className="relative w-full h-full">
         {isNodeCardVisible && (
-          <Card className="absolute right-2 z-50 p-2 max-h-[250px] min-w-[600px] shadow-xl">
+          <Card className="absolute right-2 z-50 p-2 max-h-[250px] min-w-[40%] shadow-xl">
             <NodeTooltip
               nodeTooltipTitle={nodeTooltipTitle}
               nodeTooltipData={nodeTooltipData}
@@ -375,7 +408,7 @@ export default function Graph({
           </Card>
         )}
         {isEdgeCardVisible && (
-          <Card className="absolute z-10 bottom-4 w-[98%] right-3 shadow-xl">
+          <Card className="absolute z-10 top-0 left-0 min-w-[40%] shadow-xl">
             <EdgeTooltip
               edgeTooltipData={edgeTooltipData}
               edgeTooltipTitle={edgeTooltipTitle}
@@ -383,6 +416,12 @@ export default function Graph({
             />
           </Card>
         )}
+
+       {activeSideBar === 'SearchCaseIds' && (
+        <Card className="absolute z-10 bottom-4 left-1/2 -translate-x-1/2 min-w-[95%] shadow-xl">
+          
+        </Card>
+       )} 
 
         <ReactFlow
           nodes={nodesForRender}
