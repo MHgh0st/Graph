@@ -16,9 +16,6 @@ self.onmessage = async (event: MessageEvent) => {
 
   switch (type) {
     case "PROCESS_INITIAL_DATA": {
-      console.log("Worker: Processing initial raw data...");
-
-      // const graphData: GraphDataItem[] = payload;
       const {
         graphData,
         startActivities,
@@ -142,7 +139,6 @@ self.onmessage = async (event: MessageEvent) => {
           allEdges,
         },
       });
-      console.log("Worker: Initial data processing finished.");
 
       break;
     }

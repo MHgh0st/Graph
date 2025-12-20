@@ -1,16 +1,38 @@
-import { useMemo } from "react";
-import type { Variant, Path, ExtendedPath } from "src/types/types";
+/**
+ * @component OutliersCard
+ * @module components/sideBarCards/OutliersCard
+ *
+ * @description
+ * Sidebar card for outlier analysis.
+ * Displays statistically detected outlier paths (unusual process variants)
+ * filtered by the currently selected nodes.
+ *
+ * @example
+ * ```tsx
+ * <OutliersCard
+ *   outliers={outlierVariants}
+ *   allNodes={nodes}
+ *   selectedNodeIds={selectedIds}
+ *   onSelectOutlier={handleOutlierSelect}
+ * />
+ * ```
+ */
+
+import { useMemo, useCallback, memo } from "react";
 import { Node } from "@xyflow/react";
-import { PathList } from "./PathList";
-import { 
-  RouteOff, 
-  AlertOctagon, 
-  Filter, 
-  MousePointerClick,
-  Activity
-} from "lucide-react";
 import { Chip } from "@heroui/chip";
 import { ScrollShadow } from "@heroui/scroll-shadow";
+import {
+  RouteOff,
+  AlertOctagon,
+  Filter,
+  MousePointerClick,
+  Activity,
+} from "lucide-react";
+
+import type { Variant, Path, ExtendedPath } from "../../types/types";
+import { PathList } from "./PathList";
+
 
 interface OutliersCardProps {
   outliers: Variant[] | null;

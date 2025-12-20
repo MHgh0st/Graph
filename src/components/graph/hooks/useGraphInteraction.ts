@@ -341,11 +341,7 @@ export const useGraphInteraction = (
         const endId = node.id;
         setPathEndNodeId(endId);
 
-        console.log("pathStartNodeId: ", pathStartNodeId);
-        console.log("pathEndNodeId: ", endId);
-
-        // --- الگوریتم جدید (جایگزین Worker) ---
-        console.log("Searching paths in variants...");
+        // --- Pathfinding algorithm using Variants ---
 
         const validPaths: ExtendedPath[] = [];
 
@@ -420,7 +416,6 @@ export const useGraphInteraction = (
         // validPaths.sort((a, b) => (b._frequency || 0) - (a._frequency || 0));
 
         setFoundPaths(validPaths);
-        console.log(`Found ${validPaths.length} paths from variants.`);
 
         setSelectedPathNodes(new Set([pathStartNodeId, endId]));
         setSelectedPathEdges(new Set());

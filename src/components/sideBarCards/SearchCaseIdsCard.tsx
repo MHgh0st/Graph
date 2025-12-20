@@ -1,30 +1,53 @@
-import { useState } from "react";
+/**
+ * @component SearchCaseIdsCard
+ * @module components/sideBarCards/SearchCaseIdsCard
+ *
+ * @description
+ * Sidebar card for single case investigation.
+ * Allows searching for a specific case ID to view:
+ * - Full path timeline from start to end
+ * - Duration statistics and performance comparison
+ * - Distribution charts showing percentile position
+ *
+ * @example
+ * ```tsx
+ * <SearchCaseIdsCard
+ *   filters={currentFilters}
+ *   filePath="/path/to/data.csv"
+ *   onCaseFound={handleCaseFound}
+ * />
+ * ```
+ */
+
+import { useState, useCallback, memo } from "react";
 import { NumberInput } from "@heroui/number-input";
 import { Button } from "@heroui/button";
 import { Chip } from "@heroui/chip";
 import { Divider } from "@heroui/divider";
 import { ScrollShadow } from "@heroui/scroll-shadow";
-import { Accordion, AccordionItem } from "@heroui/accordion"; // ایمپورت آکاردئون
-import { 
-  Search, 
-  XCircle, 
-  CheckCircle2, 
-  Clock, 
-  MapPin, 
+import { Accordion, AccordionItem } from "@heroui/accordion";
+import {
+  Search,
+  XCircle,
+  CheckCircle2,
+  Clock,
+  MapPin,
   FolderSearch,
   FileText,
   ArrowDown,
-  TrendingUp, 
-  TrendingDown, 
-  AlertCircle, 
+  TrendingUp,
+  TrendingDown,
+  AlertCircle,
   Info,
   Activity,
-  ListStart // آیکون برای تایم‌لاین
+  ListStart,
 } from "lucide-react";
 
-import type { FilterTypes, SearchCaseIdsData, ExtendedPath } from "src/types/types";
+import type { FilterTypes, SearchCaseIdsData, ExtendedPath } from "../../types/types";
+import { formatDuration } from "../../utils/formatDuration";
 import ProcessData from "../../utils/ProcessData";
 import CaseDistributionCharts from "../graph/ui/CaseDistributionCharts";
+
 
 interface SearchCaseIdsCardProps {
   filters: FilterTypes;
@@ -44,12 +67,6 @@ export default function SearchCaseIdsCard({
   const [searchResult, setSearchResult] = useState<SearchCaseIdsData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const formatDuration = (seconds: number) => {
-    if (seconds < 60) return `${seconds.toFixed(0)} ثانیه`;
-    if (seconds < 3600) return `${(seconds / 60).toFixed(1)} دقیقه`;
-    if (seconds < 86400) return `${(seconds / 3600).toFixed(1)} ساعت`;
-    return `${(seconds / 86400).toFixed(1)} روز`;
-  };
 
   const submit = async () => {
     if (!caseIdInput) {

@@ -1,11 +1,32 @@
+/**
+ * @component NodesFilterCard
+ * @module components/sideBarCards/NodesFilterCard
+ *
+ * @description
+ * Sidebar card for node selection and filtering.
+ * Allows users to search and select specific nodes to include in the graph.
+ * Features select all/deselect all and search filtering.
+ *
+ * @example
+ * ```tsx
+ * <NodesFilterCard
+ *   Nodes={allNodes}
+ *   selectedNodeIds={selectedIds}
+ *   onSelectionChange={handleSelectionChange}
+ *   onFilteredNodesChange={setFilteredNodes}
+ * />
+ * ```
+ */
+
+import { useState, useEffect, useMemo, useCallback, memo } from "react";
+import { useReactFlow, Node } from "@xyflow/react";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { Checkbox } from "@heroui/checkbox";
-import { Search, CheckSquare, Square, Layers, ListFilter } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
-import { useReactFlow, Node } from "@xyflow/react";
-import { Chip } from "@heroui/chip"; // برای نمایش تعداد زیبا
+import { Chip } from "@heroui/chip";
 import { Divider } from "@heroui/divider";
+import { Search, CheckSquare, Square, Layers, ListFilter } from "lucide-react";
+
 
 interface Props {
   Nodes: Node[];

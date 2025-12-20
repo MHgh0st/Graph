@@ -27,7 +27,6 @@ self.onmessage = async (event: MessageEvent) => {
 
   switch (type) {
     case "FIND_ALL_PATHS": {
-      console.log("Pathfinding Worker: Received job.");
       const { allEdges, startNodeId, endNodeId } = payload;
 
       const MAX_PATHS_TO_FIND = 100000;
@@ -57,12 +56,9 @@ self.onmessage = async (event: MessageEvent) => {
       );
 
       if (!usefulNodes.has(startNodeId) || !usefulNodes.has(endNodeId)) {
-        console.log("No path possible after pruning.");
         self.postMessage({ type: "PATHS_FOUND", payload: [] });
         break;
       }
-
-      console.log(`Pruning complete. Useful nodes: ${usefulNodes.size}`);
 
       const prunedAdj = new Map<string, { target: string; id: string }[]>();
       for (const [node, edges] of adj.entries()) {
@@ -149,15 +145,13 @@ self.onmessage = async (event: MessageEvent) => {
         currentPathNodes.pop();
       };
 
-      // --- اجرای جستجو ---
-      console.log("Worker: Starting recursive DFS with backtracking...");
-      dfs(startNodeId, 0); // جستجو را از گره شروع و عمق صفر آغاز کن
+      // --- Execute search ---
+      dfs(startNodeId, 0);
 
       self.postMessage({
         type: "PATHS_FOUND",
         payload: allPaths,
       });
-      console.log(`Pathfinding Worker: Found ${allPaths.length} paths.`);
       break;
     }
   }

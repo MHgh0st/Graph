@@ -1,7 +1,29 @@
-import ColorPaletteCard from './ColorPaletteCard';
-import { PaletteOption } from "../../types/types";
+/**
+ * @component SettingsCard
+ * @module components/sideBarCards/SettingsCard
+ *
+ * @description
+ * Settings card for the sidebar.
+ * Provides graph visualization settings including color palette selection.
+ *
+ * @example
+ * ```tsx
+ * <SettingsCard
+ *   ColorPaletteProps={{
+ *     options: paletteOptions,
+ *     value: selectedPalette,
+ *     onChange: handlePaletteChange,
+ *   }}
+ * />
+ * ```
+ */
+
+import { memo } from "react";
 import { Divider } from "@heroui/divider";
-import { PaintBucket, Sliders } from "lucide-react";
+import { PaintBucket } from "lucide-react";
+
+import type { PaletteOption } from "../../types/types";
+import ColorPaletteCard from "./ColorPaletteCard";
 
 interface Props {
   ColorPaletteProps: {

@@ -1,27 +1,53 @@
+/**
+ * @component PathfindingCard
+ * @module components/sideBarCards/PathfindingCard
+ *
+ * @description
+ * Sidebar card for pathfinding functionality.
+ * Allows users to select start and end nodes, then displays
+ * all possible paths between them with duration statistics.
+ *
+ * Features:
+ * - Two-tab interface (Nodes selection / Paths list)
+ * - Start/End node visualization
+ * - Path list with frequency and duration sorting
+ * - Search filtering for nodes
+ *
+ * @example
+ * ```tsx
+ * <PathfindingCard
+ *   startNodeId={pathStart}
+ *   endNodeId={pathEnd}
+ *   paths={foundPaths}
+ *   allNodes={nodes}
+ *   onSelectPath={handleSelectPath}
+ * />
+ * ```
+ */
+
+import { useState, useEffect, useMemo, useCallback, memo } from "react";
 import { Node } from "@xyflow/react";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { Tooltip } from "@heroui/tooltip";
 import { Chip } from "@heroui/chip";
-import { useState, useEffect, useMemo } from "react";
-import { 
-  Search, 
-  List, 
-  Network, 
-  MapPin, 
-  Timer, 
-  PlayCircle, 
-  StopCircle, 
-  ArrowLeft,
-  Navigation,
-  ArrowUpDown,
-  RefreshCcw
-} from "lucide-react";
 import { ScrollShadow } from "@heroui/scroll-shadow";
+import {
+  Search,
+  List,
+  Network,
+  MapPin,
+  Timer,
+  PlayCircle,
+  StopCircle,
+  ArrowLeft,
+  ArrowUpDown,
+  RefreshCcw,
+} from "lucide-react";
 
-import type { Path } from "src/types/types";
-// ایمپورت کامپوننت جدید لیست مسیرها
+import type { Path } from "../../types/types";
 import { PathList } from "./PathList";
+
 
 interface PathfindingCardProps {
   startNodeId: string | null;
