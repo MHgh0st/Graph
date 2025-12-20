@@ -313,7 +313,7 @@ const mainFr = 24 - sidebarFr - cardFr;
                     </div>
                     )}
 
-                    {!isLoadingRenderer && graphData && selectedNodeIds.size === 0 && (
+                    {!isLoadingRenderer && graphData && selectedNodeIds.size === 0 && selectedPathNodes.size === 0 && (
                         <div className="flex flex-col gap-4 justify-center items-center h-full text-center p-10">
                              <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center">
                                 <Workflow size={40} className="text-slate-400" />
@@ -325,7 +325,7 @@ const mainFr = 24 - sidebarFr - cardFr;
                         </div>
                     )}
 
-                    {!isLoadingRenderer && graphData && selectedNodeIds.size > 0 && (
+                    {!isLoadingRenderer && graphData && (selectedNodeIds.size > 0 || selectedPathNodes.size > 0) && (
                         <Graph
                             activeSideBar={sideBarActiveTab}
                             filteredNodeIds={selectedNodeIds}
