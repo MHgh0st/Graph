@@ -45,7 +45,6 @@ import Graph from "./Graph";
 import Filters from "./sideBarCards/Filters";
 import { PathfindingCard } from "./sideBarCards/PathfindingCard";
 import SettingsCard from "./sideBarCards/SettingsCard";
-import NodesFilterCard from "./sideBarCards/NodesFilterCard";
 import OutliersCard from "./sideBarCards/OutliersCard";
 import SearchCaseIdsCard from "./sideBarCards/SearchCaseIdsCard";
 
@@ -62,7 +61,6 @@ const TAB_TITLES: Record<SidebarTab, string> = {
   Filter: "فیلترهای پیشرفته",
   Routing: "مسیریابی هوشمند",
   Settings: "تنظیمات نمودار",
-  Nodes: "جستجوی گره‌ها",
   Outliers: "تحلیل ناهنجاری‌ها",
   SearchCaseIds: "جستجوی شناسه پرونده",
 };
@@ -74,7 +72,6 @@ const TAB_ICONS: Record<SidebarTab, React.ReactNode> = {
   Filter: <SlidersHorizontal className="text-slate-500" />,
   Routing: <LineSquiggle className="text-slate-500" />,
   Settings: <Settings className="text-slate-500" />,
-  Nodes: <Workflow className="text-slate-500" />,
   Outliers: <RouteOff className="text-slate-500" />,
   SearchCaseIds: <FolderSearch className="text-slate-500" />,
 };
@@ -232,8 +229,10 @@ export default function Dashboard() {
   // Handle sidebar tab click with tooltip cleanup
   const handleTabClick = useCallback(
     (tab: SidebarTab) => {
-      closeNodeTooltip();
-      closeEdgeTooltip();
+      if(sidebarActiveTab !== tab){
+        closeNodeTooltip();
+        closeEdgeTooltip();
+      }  
       handleSidebarTabClick(tab);
     },
     [closeNodeTooltip, closeEdgeTooltip, handleSidebarTabClick]
@@ -282,7 +281,13 @@ export default function Dashboard() {
               <div className="h-full w-full overflow-y-auto px-4 py-2 scrollbar-hide">
                 {/* Filters Tab */}
                 <Activity mode={sidebarActiveTab === "Filter" ? "visible" : "hidden"}>
-                  <Filters submit={handleFilterSubmit} isLoading={isLoading} />
+                  <Filters 
+                    submit={handleFilterSubmit} 
+                    isLoading={isLoading}
+                    allNodes={allNodes}
+                    selectedNodeIds={selectedNodeIds}
+                    onSelectionChange={setSelectedNodeIds}
+                  />
                 </Activity>
 
                 {/* Routing Tab (with data) */}
@@ -321,16 +326,6 @@ export default function Dashboard() {
                     برای شروع مسیریابی، لطفاً ابتدا داده‌ها را از بخش فیلترها پردازش کنید.
                   </p>
                 </div>
-
-                {/* Nodes Tab */}
-                <Activity mode={sidebarActiveTab === "Nodes" ? "visible" : "hidden"}>
-                  <NodesFilterCard
-                    Nodes={allNodes}
-                    selectedNodeIds={selectedNodeIds}
-                    onSelectionChange={setSelectedNodeIds}
-                    onFilteredNodesChange={() => {}}
-                  />
-                </Activity>
 
                 {/* Settings Tab */}
                 <SettingsCard
@@ -393,7 +388,7 @@ export default function Dashboard() {
                   داده‌ها آماده نمایش هستند
                 </h2>
                 <p className="text-slate-500 max-w-md">
-                  از منوی "جستجوی گره‌ها" یا "فیلترها"، گره‌های مورد نظر خود را انتخاب
+                  از بخش فیلترها، گره‌های مورد نظر خود را انتخاب
                   کنید تا گراف ترسیم شود.
                 </p>
               </div>

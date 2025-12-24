@@ -42,6 +42,8 @@ export interface FilterTypes {
   weightFilter: "cases" | "mean_time";
   /** Time unit for display: seconds, minutes, hours, days, weeks */
   timeUnitFilter: "s" | "m" | "h" | "d" | "w";
+  /** Outlier percentage for filtering */
+  outlierPrecentage: number | null;
 }
 
 // ============================================================================
@@ -119,7 +121,6 @@ export type SidebarTab =
   | "Filter"      // Data filtering
   | "Routing"     // Pathfinding
   | "Settings"    // Graph settings
-  | "Nodes"       // Node selection
   | "Outliers"    // Outlier analysis
   | "SearchCaseIds"; // Case ID search
 

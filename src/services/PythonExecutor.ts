@@ -130,6 +130,7 @@ export const pythonExecutor = {
       "--end-date", filters.dateRange.end,
       "--weight-metric", filters.weightFilter,
       "--time-unit", filters.timeUnitFilter,
+      "--outliers", filters.outlierPrecentage?.toString() || "5",
     ];
 
     if (filters.minCaseCount != undefined) {
@@ -147,6 +148,8 @@ export const pythonExecutor = {
     if (filters.meanTimeRange.max != null) {
       args.push("--max-mean-time", filters.meanTimeRange.max.toString());
     }
+
+    
 
     return executePythonScript<ProcessMiningData>(args);
   },

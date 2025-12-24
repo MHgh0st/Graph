@@ -1,7 +1,11 @@
 import { useEffect, useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import Chart from "react-apexcharts";
 import { ApexOptions } from "apexcharts";
-import { Activity } from "lucide-react";
+import { Activity, Maximize2, Minimize2, X } from "lucide-react";
+import { Button } from "@heroui/button";
+import { Tooltip } from "@heroui/tooltip";
+import { motion, AnimatePresence } from "framer-motion";
 import type { FilterTypes, HistogramData } from "src/types/types";
 import GetEdgeStatisticsData from "../../../utils/GetEdgeStatisticsData";
 
@@ -22,6 +26,9 @@ export default function EdgeDurationChart({
 }: EdgeDurationChartProps) {
   const [histogramData, setHistogramData] = useState<HistogramData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  
+  // 1. استیت جدید برای وضعیت بزرگنمایی
+  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -53,6 +60,17 @@ export default function EdgeDurationChart({
 
     return () => { isMounted = false; };
   }, [filePath, filters, source, target]);
+
+  // بستن با دکمه Esc
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+        if (e.key === "Escape") setIsExpanded(false);
+    };
+    if (isExpanded) {
+        window.addEventListener("keydown", handleEsc);
+    }
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [isExpanded]);
 
   const formatDuration = (seconds: number) => {
     if (seconds < 60) return `${seconds.toFixed(0)} ثانیه`;
@@ -92,6 +110,7 @@ export default function EdgeDurationChart({
     chart: {
         type: 'area',
         toolbar: { show: false },
+        fontFamily: 'inherit',
         sparkline: { enabled: false },
         animations: { enabled: true },
         parentHeightOffset: 0,
@@ -118,28 +137,31 @@ export default function EdgeDurationChart({
         labels: { 
             show: true,
             rotate: -45,
-            style: { fontSize: '9px', colors: '#94a3b8' },
+            style: { fontSize: '9px', colors: '#94a3b8', fontFamily: 'inherit' },
             trim: true,
             maxHeight: 40,
-            // --- تغییر اصلی: مدیریت هوشمند لیبل‌ها ---
             formatter: (val, timestamp, opts) => {
                 const index = opts?.i;
                 if (typeof index === 'undefined') return val;
 
                 const total = chartConfig?.categories.length || 0;
                 
-                if (total < 8) return val;
+                // تنظیمات داینامیک بر اساس وضعیت بزرگنمایی
+                const threshold = isExpanded ? 25 : 8; 
+                const stepDivider = isExpanded ? 15 : 6;
 
-                const step = Math.ceil(total / 6);
+                if (total < threshold) return val;
+
+                const step = Math.ceil(total / stepDivider);
 
                 if (index % step === 0) return val;
                 
                 return '';
             }
         },
-        tickAmount: 6,
-        axisBorder: { show: false },
-        axisTicks: { show: false },
+        tickAmount: isExpanded ? 15 : 6,
+        axisBorder: { show: isExpanded, color: '#e2e8f0' }, // در حالت بزرگ بردر داشته باشد
+        axisTicks: { show: isExpanded, color: '#e2e8f0' },
         tooltip: { enabled: false },
         crosshairs: { show: false }
     },
@@ -147,7 +169,7 @@ export default function EdgeDurationChart({
         show: true,
         labels: { 
             show: true,
-            style: { fontSize: '9px', colors: '#94a3b8' },
+            style: { fontSize: '9px', colors: '#94a3b8', fontFamily: 'inherit' },
             formatter: (val) => val.toFixed(0),
             offsetX: -5
         },
@@ -160,11 +182,8 @@ export default function EdgeDurationChart({
     tooltip: {
         theme: 'light',
         fixed: { enabled: false },
-        // --- اصلاح تولتیپ به صورت راست‌چین ---
         custom: ({ series, seriesIndex, dataPointIndex, w }) => {
             const value = series[seriesIndex][dataPointIndex];
-            
-            // پیدا کردن لیبل بازه زمانی
             let label = w.globals.labels[dataPointIndex];
             if (chartConfig?.bins) {
                 const start = formatDuration(chartConfig.bins[dataPointIndex]);
@@ -179,7 +198,7 @@ export default function EdgeDurationChart({
                     </div>
                     <div class="flex items-center justify-between gap-3 text-xs">
                         <span class="text-slate-600 font-medium">تعداد پرونده:</span>
-                        <span class="font-bold text-slate-700" style=" direction: ltr;">${value}</span>
+                        <span class="font-bold text-slate-700" style="font-family: monospace; direction: ltr;">${value}</span>
                     </div>
                 </div>
             `;
@@ -202,6 +221,7 @@ export default function EdgeDurationChart({
                     padding: { left: 4, right: 4, top: 2, bottom: 2 },
                     fontWeight: 'bold',
                     borderRadius: 2,
+                    fontFamily: 'inherit'
                 },
                 text: 'پرونده انتخابی',
                 orientation: 'horizontal',
@@ -212,37 +232,19 @@ export default function EdgeDurationChart({
     }
   };
 
-  // --- Improved Skeleton Loading UI ---
+  // --- Skeleton Loading ---
   if (isLoading) {
     return (
-      <div className="mt-3 pt-3 border-t border-slate-100 animate-pulse">
-        {/* Title Placeholder */}
+      <div className="mt-3 pt-3 border-t border-slate-100 animate-pulse h-40">
         <div className="flex items-center gap-2 mb-3">
             <div className="w-3 h-3 bg-slate-200 rounded-full"></div>
             <div className="w-28 h-2.5 bg-slate-200 rounded"></div>
         </div>
-
-        {/* Chart Area Placeholder */}
         <div className="h-28 w-full bg-slate-50 rounded-lg relative overflow-hidden">
-            {/* Shimmer Effect */}
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent -translate-x-full animate-[shimmer_1.5s_infinite] z-10"></div>
-            
-            {/* Mocking Shapes (Fake bars/area) */}
-            <div className="absolute bottom-0 left-4 w-6 h-12 bg-slate-200 rounded-t opacity-60"></div>
-            <div className="absolute bottom-0 left-12 w-6 h-20 bg-slate-200 rounded-t opacity-60"></div>
-            <div className="absolute bottom-0 left-20 w-6 h-8 bg-slate-200 rounded-t opacity-60"></div>
-            <div className="absolute bottom-0 right-16 w-6 h-16 bg-slate-200 rounded-t opacity-60"></div>
-            <div className="absolute bottom-0 right-6 w-6 h-10 bg-slate-200 rounded-t opacity-60"></div>
-            
-            {/* Base line */}
-            <div className="absolute bottom-0 w-full h-1 bg-slate-200"></div>
-        </div>
-
-        {/* Labels Placeholder */}
-        <div className="flex justify-between px-2 mt-2">
-            <div className="w-8 h-2 bg-slate-100 rounded"></div>
-            <div className="w-8 h-2 bg-slate-100 rounded"></div>
-            <div className="w-8 h-2 bg-slate-100 rounded"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent -translate-x-full animate-[shimmer_1.5s_infinite]"></div>
+            <div className="flex items-end justify-between h-full gap-2 px-2 pb-2">
+                 {[...Array(6)].map((_,i)=><div key={i} className="w-full bg-slate-200 rounded-t opacity-60" style={{height: `${Math.random()*60+20}%`}}></div>)}
+            </div>
         </div>
       </div>
     );
@@ -250,13 +252,42 @@ export default function EdgeDurationChart({
 
   if (!chartConfig) return null;
 
-  return (
-    <div className="mt-3 pt-3 border-t border-slate-100">
-        <div className="flex items-center gap-1 mb-2 text-[10px] text-slate-500 font-bold">
-            <Activity size={12} />
-            <span>توزیع زمان در این مرحله</span>
+  // --- محتوای اصلی کارت (مشترک بین دو حالت) ---
+  const ChartContent = (
+    <motion.div
+        // استفاده از ID منحصر به فرد ترکیبی برای جلوگیری از تداخل اگر چندین نمودار همزمان باشند
+        layoutId={`edge-chart-${source}-${target}`}
+        className={`
+            bg-white flex flex-col overflow-hidden
+            ${isExpanded 
+                ? "w-[90vw] h-[85vh] rounded-2xl shadow-2xl p-6 border border-slate-200 z-[50]" 
+                : "w-full h-full bg-transparent" // در حالت کوچک پس زمینه شفاف/سفید
+            }
+        `}
+        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+    >
+        {/* Header */}
+        <div className={`flex items-center justify-between shrink-0 ${isExpanded ? 'mb-4 border-b border-slate-100 pb-2' : 'mb-2'}`}>
+            <div className="flex items-center gap-1 text-slate-500 font-bold">
+                <Activity size={isExpanded ? 20 : 12} className="text-blue-500" />
+                <span className={isExpanded ? "text-lg text-slate-700" : "text-[10px]"}>توزیع زمان در این مرحله</span>
+            </div>
+            
+            <Tooltip content={isExpanded ? "کوچک کردن" : "بزرگنمایی"} showArrow size="sm" className="text-xs">
+                <Button 
+                    isIconOnly 
+                    size="sm" 
+                    variant="light" 
+                    onPress={() => setIsExpanded(!isExpanded)}
+                    className="text-slate-400 hover:text-slate-600 min-w-6 w-6 h-6"
+                >
+                    {isExpanded ? <X size={20} /> : <Maximize2 size={14} />}
+                </Button>
+            </Tooltip>
         </div>
-        <div className="h-32 w-full dir-ltr -ml-2">
+
+        {/* Chart Container */}
+        <div className="flex-1 w-full min-h-0 relative">
             <Chart 
                 options={options} 
                 series={chartConfig.series} 
@@ -265,6 +296,50 @@ export default function EdgeDurationChart({
                 width="100%" 
             />
         </div>
-    </div>
+    </motion.div>
+  );
+
+  return (
+    <>
+      {/* 1. کانتینر اصلی در محل اولیه */}
+      <div className="mt-3 pt-3 border-t border-slate-100 relative h-40">
+        {!isExpanded && ChartContent}
+        
+        {/* Placeholder وقتی کامپوننت پرواز می‌کند */}
+        {isExpanded && (
+            <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="w-full h-full flex items-center justify-center bg-slate-50/50 border border-dashed border-slate-200 rounded-lg"
+            >
+                <span className="text-[10px] text-slate-400">نمودار تمام صفحه</span>
+            </motion.div>
+        )}
+      </div>
+
+      {/* 2. پورتال برای نمایش تمام صفحه */}
+      {createPortal(
+        <AnimatePresence>
+            {isExpanded && (
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 sm:p-10 pointer-events-none">
+                    {/* Backdrop */}
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm pointer-events-auto"
+                        onClick={() => setIsExpanded(false)}
+                    />
+                    
+                    {/* Expanded Card */}
+                    <div className="relative pointer-events-auto z-10 w-full flex items-center justify-center">
+                        {ChartContent}
+                    </div>
+                </div>
+            )}
+        </AnimatePresence>,
+        document.body
+      )}
+    </>
   );
 }
