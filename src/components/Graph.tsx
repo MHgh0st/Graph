@@ -403,7 +403,9 @@ function Graph({
           ...(edge.style || {}),
           opacity,
           zIndex: isTooltipActive ? 1000 : isHighlighted ? 500 : 0,
-          stroke: isGhost ? "#f59e0b" : edge.style?.stroke,
+          stroke: isGhost 
+            ? (isTooltipActive ? "#FFC107" : "#6c6c6cff") 
+            : edge.style?.stroke,
         },
         focusable: true,
       };

@@ -130,8 +130,11 @@ export const pythonExecutor = {
       "--end-date", filters.dateRange.end,
       "--weight-metric", filters.weightFilter,
       "--time-unit", filters.timeUnitFilter,
-      "--outliers", filters.outlierPrecentage?.toString() || "5",
     ];
+
+    if (filters.outlierPrecentage != undefined) {
+      args.push("--outliers", filters.outlierPrecentage.toString());
+    }
 
     if (filters.minCaseCount != undefined) {
       args.push("--min-cases", filters.minCaseCount.toString());

@@ -111,7 +111,10 @@ export const StyledSmoothStepEdge = (props: EdgeProps) => {
   // تنظیمات نهایی استایل
   const edgeStyle = {
     ...style,
-    stroke: isGhost ? "#f59e0b" : (style?.stroke || "#52525b"),
+    // برای ghost ها، اگر stroke از والد پاس داده شده (مثلا رنگ انتخاب) استفاده کن، وگرنه خاکستری
+    stroke: isGhost 
+      ? (style?.stroke || "#949494ff") 
+      : (style?.stroke || "#52525b"),
     strokeWidth: style?.strokeWidth || 1.5,
     fill: "none",
     // اگر گوست است، حتما خط‌چین باشد، وگرنه از استایل والد بگیرد
