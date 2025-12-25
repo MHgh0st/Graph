@@ -92,15 +92,13 @@ export const PathfindingCard = ({
   const [activeTab, setActiveTab] = useState<"Nodes" | "Paths">("Nodes");
   const [searchValue, setSearchValue] = useState("");
 
-  // --- Logic: Base Nodes (Filter by selectedNodeIds) ---
+  // --- Logic: Base Nodes (نمایش تمام گره‌ها بدون توجه به فیلترها) ---
+  // تب مسیریابی مستقل از گره‌های انتخاب شده در تب فیلترها کار می‌کند
   const baseNodes = useMemo(() => {
-    if (selectedNodeIds && selectedNodeIds.size > 0) {
-      return allNodes.filter((node) => selectedNodeIds.has(node.id));
-    }
-    // اگر هیچ گره‌ای در فیلتر اصلی انتخاب نشده باشد، لیست خالی برمی‌گردانیم
-    // تا کاربر مجبور شود اول از فیلتر گره‌ها استفاده کند (طبق منطق کد قبلی شما)
-    return [];
-  }, [allNodes, selectedNodeIds]);
+    // همیشه تمام گره‌ها را برمی‌گردانیم
+    return allNodes;
+  }, [allNodes]);
+
 
   // --- Logic: Process Paths (Calculate Durations) ---
   useEffect(() => {

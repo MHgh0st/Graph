@@ -116,18 +116,30 @@ export default function Dashboard() {
   } = useAppStore();
 
   // Compute layout filters based on path selection
+  // در حالت SearchCaseIds یا Outliers یا Routing با مسیر فعال، فیلتر گره‌ها را نادیده می‌گیریم
   const layoutFilters = useMemo(
-    () => ({
-      nodes: selectedPathIndex !== null ? selectedPathNodes : selectedNodeIds,
-      edges: selectedPathIndex !== null ? selectedPathEdges : null,
-    }),
-    [selectedPathIndex, selectedPathNodes, selectedNodeIds, selectedPathEdges]
+    () => {
+      // اگر در تب جستجوی پرونده یا تحلیل ناهنجاری‌ها یا مسیریابی هستیم و مسیری انتخاب شده، از فیلترهای تب فیلترها مستقل باشد
+      if ((sidebarActiveTab === "SearchCaseIds" || sidebarActiveTab === "Outliers" || sidebarActiveTab === "Routing") && selectedPathNodes.size > 0) {
+        return {
+          nodes: selectedPathNodes,
+          edges: selectedPathEdges,
+        };
+      }
+      // در غیر این صورت، رفتار معمول
+      return {
+        nodes: selectedPathIndex !== null ? selectedPathNodes : selectedNodeIds,
+        edges: selectedPathIndex !== null ? selectedPathEdges : null,
+      };
+    },
+    [selectedPathIndex, selectedPathNodes, selectedNodeIds, selectedPathEdges, sidebarActiveTab]
   );
 
-  // Compute active path info for ghost elements (only in SearchCaseIds mode)
-  // محاسبه اطلاعات مسیر فعال برای ghost elements
+  // Compute active path info for ghost elements (SearchCaseIds, Outliers, and Routing modes)
+  // محاسبه اطلاعات مسیر فعال برای ghost elements در هر سه تب
   const activePathInfo = useMemo(() => {
-    if (sidebarActiveTab !== "SearchCaseIds") return undefined;
+    // فقط در تب‌های جستجوی پرونده، تحلیل ناهنجاری‌ها و مسیریابی ghost elements فعال است
+    if (sidebarActiveTab !== "SearchCaseIds" && sidebarActiveTab !== "Outliers" && sidebarActiveTab !== "Routing") return undefined;
     if (selectedPathNodes.size === 0) return undefined;
     
     // تبدیل Sets به آرایه‌ها
@@ -401,10 +413,15 @@ export default function Dashboard() {
           )}
 
           {/* Empty State: Data loaded but no nodes selected */}
+          {/* در حالت SearchCaseIds/Outliers/Routing این پیام نمایش داده نمی‌شود */}
           {!isLoading &&
             graphData &&
             selectedNodeIds.size === 0 &&
-            selectedPathNodes.size === 0 && (
+            selectedPathNodes.size === 0 &&
+            sidebarActiveTab !== "SearchCaseIds" &&
+            sidebarActiveTab !== "Outliers" &&
+            sidebarActiveTab !== "Routing" && (
+
               <div className="flex flex-col gap-4 justify-center items-center h-full text-center p-10">
                 <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center">
                   <Workflow size={40} className="text-slate-400" />
@@ -420,9 +437,11 @@ export default function Dashboard() {
             )}
 
           {/* Graph Visualization */}
+          {/* در حالت SearchCaseIds/Outliers/Routing با مسیر فعال، گراف بدون نیاز به selectedNodeIds رندر می‌شود */}
           {!isLoading &&
             graphData &&
-            (selectedNodeIds.size > 0 || selectedPathNodes.size > 0) && (
+            (selectedNodeIds.size > 0 || selectedPathNodes.size > 0 || sidebarActiveTab === "SearchCaseIds" || sidebarActiveTab === "Outliers" || sidebarActiveTab === "Routing") && (
+
               <Graph
                 activeSideBar={sidebarActiveTab}
                 filteredNodeIds={selectedNodeIds}

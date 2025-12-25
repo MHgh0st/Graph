@@ -50,29 +50,33 @@ export default function OutliersCard({
   onSelectOutlier,
 }: OutliersCardProps) {
 
-  // --- 1. منطق محاسباتی (بدون تغییر) ---
+  // --- 1. منطق محاسباتی (مستقل از فیلترها) ---
+  // تب تحلیل ناهنجاری‌ها کاملاً مستقل از گره‌های انتخاب شده در فیلترها کار می‌کند
   const convertedPaths = useMemo<Path[]>(() => {
     if (!outliers) return [];
 
-    // گام اول: فیلتر کردن
-    // اگر هیچ گره‌ای انتخاب نشده باشد، طبق منطق قبلی لیست خالی برمی‌گردد
-    // تا کاربر مجبور به انتخاب شود.
-    let filteredOutliers: Variant[] = [];
-    if (selectedNodeIds.size > 0) {
-      filteredOutliers = outliers.filter((variant) =>
-        variant.Variant_Path.every((nodeId) => selectedNodeIds.has(nodeId))
-      );
-    }
+    // نمایش تمام ناهنجاری‌ها بدون فیلتر selectedNodeIds
+    const filteredOutliers = outliers;
 
     // گام دوم: تبدیل به Path
     const mappedPaths = filteredOutliers.map((variant) => {
       const edges: string[] = [];
       const nodes = variant.Variant_Path;
 
+      // محاسبه _specificEdgeDurations برای نمایش لیبل روی یال‌های ghost
+      const specificEdgeDurations: Record<string, number> = {};
+
       for (let i = 0; i < nodes.length - 1; i++) {
         const source = nodes[i];
         const target = nodes[i + 1];
-        edges.push(`${source}->${target}`);
+        const edgeId = `${source}->${target}`;
+        edges.push(edgeId);
+
+        // محاسبه duration هر یال از تفاوت تایمینگ‌ها
+        if (variant.Avg_Timings.length > i + 1) {
+          const duration = variant.Avg_Timings[i + 1] - variant.Avg_Timings[i];
+          specificEdgeDurations[edgeId] = duration;
+        }
       }
 
       const meanPathDuration =
@@ -91,10 +95,12 @@ export default function OutliersCard({
         _frequency: variant.Frequency,
         _variantTimings: variant.Avg_Timings,
         _pathType: "absolute",
+        _specificEdgeDurations: specificEdgeDurations, // اضافه کردن duration هر یال
       };
 
       return pathData;
     });
+
 
     // گام سوم: مرتب‌سازی
     return mappedPaths.sort((a, b) => {
@@ -140,64 +146,42 @@ export default function OutliersCard({
       </div> */}
 
       {/* --- Status Bar / Info --- */}
-      {selectedNodeIds.size > 0 ? (
-        <div className="flex items-center justify-between p-3 bg-rose-50/50 border border-rose-100 rounded-xl shrink-0">
-            <div className="flex items-center gap-2">
-                <Filter size={14} className="text-rose-400" />
-                <span className="text-xs font-bold text-rose-700">
-                    {convertedPaths.length} مورد یافت شد
-                </span>
-            </div>
-            <span className="text-[10px] text-rose-400 bg-white px-2 py-0.5 rounded-full border border-rose-100">
-                در محدوده فیلتر
-            </span>
-        </div>
-      ) : (
-        // وضعیت "عدم انتخاب" به صورت باکس راهنما
-        <div className="flex items-center gap-3 p-3 bg-slate-50 border border-dashed border-slate-200 rounded-xl shrink-0 opacity-70">
-            <MousePointerClick size={18} className="text-slate-400" />
-            <p className="text-xs text-slate-500 leading-5">
-                برای مشاهده ناهنجاری‌ها، لطفاً ابتدا گره‌های مورد نظر را از 
-                <span className="font-bold text-slate-700 mx-1">لیست گره‌ها</span> 
-                یا 
-                <span className="font-bold text-slate-700 mx-1">فیلترها</span> 
-                انتخاب کنید.
-            </p>
-        </div>
-      )}
+      {/* نمایش تعداد ناهنجاری‌ها */}
+      <div className="flex items-center justify-between p-3 bg-rose-50/50 border border-rose-100 rounded-xl shrink-0">
+          <div className="flex items-center gap-2">
+              <Filter size={14} className="text-rose-400" />
+              <span className="text-xs font-bold text-rose-700">
+                  {convertedPaths.length} مورد یافت شد
+              </span>
+          </div>
+          <span className="text-[10px] text-rose-400 bg-white px-2 py-0.5 rounded-full border border-rose-100">
+              کل ناهنجاری‌ها
+          </span>
+      </div>
 
       {/* --- Content Area --- */}
       <div className="flex-1 min-h-0 relative overflow-hidden bg-white rounded-xl border border-slate-100">
-        {selectedNodeIds.size > 0 ? (
-            convertedPaths.length > 0 ? (
-                <ScrollShadow className="h-full p-2">
-                    <PathList
-                        paths={convertedPaths}
-                        allNodes={allNodes}
-                        selectedIndex={selectedIndex}
-                        onSelectPath={handleSelectPathWrapper}
-                        // چون در این حالت لیست پر است، پیام خالی اینجا نمایش داده نمی‌شود
-                        emptyMessage="" 
-                        groupByType={false}
-                    />
-                </ScrollShadow>
-            ) : (
-                // حالت: گره انتخاب شده اما ناهنجاری پیدا نشد
-                <div className="flex flex-col items-center justify-center h-full gap-3 p-6 text-center">
-                    <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mb-1">
-                        <Activity size={32} className="text-emerald-400" />
-                    </div>
-                    <h4 className="text-slate-700 font-bold text-sm">همه چیز طبیعی است!</h4>
-                    <p className="text-slate-400 text-xs max-w-[200px] leading-5">
-                        در بین گره‌های انتخاب شده، هیچ مسیر پرت یا ناهنجاری (Outlier) یافت نشد.
-                    </p>
-                </div>
-            )
+        {convertedPaths.length > 0 ? (
+            <ScrollShadow className="h-full p-2">
+                <PathList
+                    paths={convertedPaths}
+                    allNodes={allNodes}
+                    selectedIndex={selectedIndex}
+                    onSelectPath={handleSelectPathWrapper}
+                    emptyMessage="" 
+                    groupByType={false}
+                />
+            </ScrollShadow>
         ) : (
-            // حالت: هیچ گره‌ای انتخاب نشده (Empty State اصلی)
-            <div className="flex flex-col items-center justify-center h-full gap-3 p-6 text-center opacity-40 grayscale">
-                <AlertOctagon size={48} className="text-slate-300" />
-                <p className="text-slate-400 text-sm font-medium">منتظر انتخاب گره‌ها...</p>
+            // حالت: ناهنجاری پیدا نشد
+            <div className="flex flex-col items-center justify-center h-full gap-3 p-6 text-center">
+                <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mb-1">
+                    <Activity size={32} className="text-emerald-400" />
+                </div>
+                <h4 className="text-slate-700 font-bold text-sm">همه چیز طبیعی است!</h4>
+                <p className="text-slate-400 text-xs max-w-[200px] leading-5">
+                    هیچ مسیر پرت یا ناهنجاری (Outlier) یافت نشد.
+                </p>
             </div>
         )}
       </div>

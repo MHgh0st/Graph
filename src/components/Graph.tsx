@@ -372,13 +372,17 @@ function Graph({
       const edgeData = edge.data as CustomEdgeData | undefined;
       const isGhost = edgeData?.isGhost === true;
       
-      const isHighlighted = selectedPathEdges.has(edge.id) || isGhost;
+      // بررسی اینکه آیا یال بین دو گره از مسیر انتخاب شده است
+      const isEdgeBetweenPathNodes = selectedPathNodes.has(edge.source) && selectedPathNodes.has(edge.target);
+      const isHighlighted = selectedPathEdges.has(edge.id) || isGhost || isEdgeBetweenPathNodes;
       const isTooltipActive = edge.id === activeTooltipEdgeId;
 
+      // در حالت مسیریابی، یال‌هایی که بین گره‌های مسیر هستند نباید کم‌رنگ شوند
       const opacity =
         (isPathFinding || isHighlighting) && !isHighlighted
           ? 0.1
           : edge.style?.opacity ?? 1;
+
 
       const override = calculateEdgeOverride(edge, activePath, isHighlighted);
       const displayLabel = override?.displayLabel || (edge.label as string);
@@ -439,9 +443,11 @@ function Graph({
   ]);
 
   const edgeChartProps = useMemo(() => {
-    if (activeSideBar !== "SearchCaseIds" || !activeTooltipEdgeId || !filePath || !filters) {
+    // فعال‌سازی چارت برای تب‌های SearchCaseIds و Outliers
+    if ((activeSideBar !== "SearchCaseIds" && activeSideBar !== "Outliers") || !activeTooltipEdgeId || !filePath || !filters) {
       return null;
     }
+
 
     const activeEdge = edgesForRender.find((e) => e.id === activeTooltipEdgeId);
     const activeEdgeData = activeEdge?.data as CustomEdgeData | undefined;

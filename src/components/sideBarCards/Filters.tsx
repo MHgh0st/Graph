@@ -245,7 +245,7 @@ function Filters({
 
       submit(filters);
     },
-    [dateRange, caseIdRange, meanTimeRange, weightFilter, timeUnitFilter, getISOStringRange, submit]
+    [dateRange, caseIdRange, meanTimeRange, weightFilter, timeUnitFilter, getISOStringRange, submit, outlierPrecentage]
   );
 
   return (

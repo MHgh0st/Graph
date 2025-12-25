@@ -161,19 +161,25 @@ export const useGraphInteraction = (
         });
       });
 
-      if (selectedEdge) {
-        const dataToShow = [];
+      // برای یال‌های ghost که در allEdges نیستند، از overrides استفاده می‌کنیم
+      const isGhostEdge = !selectedEdge && edgeId.includes("->");
+      
+      if (selectedEdge || isGhostEdge) {
+        const dataToShow: Array<{ label: string; value: string | number }> = [];
+
         
         // --- تغییر: استفاده از مقادیر جایگزین (Override) در صورت وجود ---
         
         // ۱. تعداد (اگر اورراید شده باشد، مثلا تعداد عبور در مسیر)
-        const labelValue = overrides?.label !== undefined ? overrides.label : selectedEdge.data?.Case_Count;
-        if (labelValue) {
+        const labelValue = overrides?.label !== undefined 
+          ? overrides.label 
+          : (selectedEdge?.data?.Case_Count as string | number | undefined);
+        if (labelValue !== undefined && labelValue !== null) {
           dataToShow.push({ label: "تعداد", value: labelValue });
         }
 
         // ۲. میانگین زمان (اگر اورراید شده باشد، زمان دقیق مسیر)
-        const meanTimeValue = overrides?.meanTime || selectedEdge.data?.Tooltip_Mean_Time;
+        const meanTimeValue = overrides?.meanTime || (selectedEdge?.data?.Tooltip_Mean_Time as string | undefined);
         if (meanTimeValue) {
           dataToShow.push({
             label: "میانگین زمان",
@@ -182,7 +188,7 @@ export const useGraphInteraction = (
         }
 
         // ۳. زمان کل
-        const totalTimeValue = overrides?.totalTime || selectedEdge.data?.Tooltip_Total_Time;
+        const totalTimeValue = overrides?.totalTime || (selectedEdge?.data?.Tooltip_Total_Time as string | undefined);
         if (totalTimeValue) {
           dataToShow.push({
             label: "زمان کل",
@@ -191,12 +197,27 @@ export const useGraphInteraction = (
         }
         // -----------------------------------------------------------
 
+
         setEdgeTooltipData(dataToShow);
 
-        const sourceNode = allNodes.find((n) => n.id === selectedEdge.source);
-        const targetNode = allNodes.find((n) => n.id === selectedEdge.target);
+        // برای یال‌های ghost، source و target را از edgeId استخراج می‌کنیم
+        let sourceId: string;
+        let targetId: string;
+        
+        if (selectedEdge) {
+          sourceId = selectedEdge.source;
+          targetId = selectedEdge.target;
+        } else {
+          // فرمت edgeId: "sourceId->targetId"
+          const parts = edgeId.split("->");
+          sourceId = parts[0];
+          targetId = parts[1];
+        }
+
+        const sourceNode = allNodes.find((n) => n.id === sourceId);
+        const targetNode = allNodes.find((n) => n.id === targetId);
         setEdgeTooltipTitle(
-          `از یال ${sourceNode?.data?.label || selectedEdge.source} به ${targetNode?.data?.label || selectedEdge.target}`
+          `از یال ${sourceNode?.data?.label || sourceId} به ${targetNode?.data?.label || targetId}`
         );
 
         setIsEdgeCardVisible(true)
@@ -213,6 +234,7 @@ export const useGraphInteraction = (
     [allEdges, allNodes, setLayoutedEdges, setLayoutedNodes]
   );
 
+
   const handleSelectPath = (path: Path, index: number) => {
     setSelectedPathNodes(new Set(path.nodes));
     setSelectedPathEdges(new Set(path.edges));
@@ -226,9 +248,12 @@ export const useGraphInteraction = (
     setSelectedPathEdges(edgeIds);
     setSelectedPathNodes(nodeIds);
 
+    // outlierPath همیشه در ایندکس 0 قرار می‌گیرد
     setFoundPaths([outlierPath]);
-    setSelectedPathIndex(index);
+    // باید از ایندکس 0 استفاده کنیم چون آرایه فقط یک عضو دارد
+    setSelectedPathIndex(0);
   }
+
 
   // --- حذف توابع setupWorker و useEffect مربوطه ---
 
@@ -373,13 +398,9 @@ export const useGraphInteraction = (
             const isAbsoluteEnd = endIdx === variant.Variant_Path.length - 1;
             const pathType = isAbsoluteStart && isAbsoluteEnd ? "absolute" : "relative";
 
-            if (selectedNodeIds && selectedNodeIds.size > 0) {
-              const isPathInSubgraph = pathNodes.every((nodeId) =>
-                selectedNodeIds.has(nodeId)
-              );
-              // اگر حتی یک گره از مسیر در فیلتر کاربر نباشد، این مسیر را نادیده بگیر
-              if (!isPathInSubgraph) return;
-            }
+            // تب مسیریابی مستقل از گره‌های انتخاب شده در فیلترها است
+            // دیگر نیازی به بررسی selectedNodeIds نیست
+
 
             // پیدا کردن ID یال‌ها برای هایلایت
             const pathEdges: string[] = [];
