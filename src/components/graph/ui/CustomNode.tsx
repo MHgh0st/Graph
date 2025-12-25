@@ -38,7 +38,7 @@ const CustomNode = ({ data, selected }: NodeProps) => {
   return (
     <div
       className={`
-        relative group min-w-[200px] px-4 py-3 rounded-xl 
+        relative group px-4 py-3 rounded-xl 
         bg-gradient-to-br backdrop-blur-md border 
         transition-all duration-300 ease-out
         hover:shadow-lg hover:-translate-y-1
@@ -46,17 +46,18 @@ const CustomNode = ({ data, selected }: NodeProps) => {
         ${styles.wrapper}
         ${isSelectedClass}
       `}
+      style={{ width: 'fit-content' }}
     >
       {/* هندل‌های اتصال (نامرئی اما فعال) */}
       <Handle type="target" position={Position.Left} className="!bg-transparent !border-0" />
       
       {/* هدر نود: آیکون و لیبل */}
       <div className="flex items-center gap-3">
-        <div className={`p-2 rounded-lg ${styles.badge} shadow-inner`}>
+        <div className={`p-2 rounded-lg ${styles.badge} shadow-inner shrink-0`}>
             {styles.icon}
         </div>
-        <div className="flex flex-col text-right grow max-w-[83%]">
-          <span className="text-sm font-bold text-blue-400 text-right text-nowrap " title={label}>
+        <div className="flex flex-col text-right">
+          <span className="text-sm font-bold text-blue-400 text-right whitespace-nowrap" title={label}>
             {label}
           </span>
           <span className="text-[10px] text-blue-400/60 font-vazir">

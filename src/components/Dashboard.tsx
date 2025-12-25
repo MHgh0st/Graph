@@ -124,9 +124,33 @@ export default function Dashboard() {
     [selectedPathIndex, selectedPathNodes, selectedNodeIds, selectedPathEdges]
   );
 
+  // Compute active path info for ghost elements (only in SearchCaseIds mode)
+  // محاسبه اطلاعات مسیر فعال برای ghost elements
+  const activePathInfo = useMemo(() => {
+    if (sidebarActiveTab !== "SearchCaseIds") return undefined;
+    if (selectedPathNodes.size === 0) return undefined;
+    
+    // تبدیل Sets به آرایه‌ها
+    const pathNodes = Array.from(selectedPathNodes);
+    const pathEdges = Array.from(selectedPathEdges);
+    
+    // ساختن لیست یال‌ها بر اساس ترتیب گره‌ها (اگر edges خالی باشد)
+    // این برای موردی است که یال‌ها از کاربر نیامده باشد
+    if (pathEdges.length === 0 && pathNodes.length > 1) {
+      const computedEdges: string[] = [];
+      for (let i = 0; i < pathNodes.length - 1; i++) {
+        computedEdges.push(`${pathNodes[i]}->${pathNodes[i + 1]}`);
+      }
+      return { nodes: pathNodes, edges: computedEdges };
+    }
+    
+    return { nodes: pathNodes, edges: pathEdges };
+  }, [sidebarActiveTab, selectedPathNodes, selectedPathEdges]);
+
   // Graph layout hook
   const {
     allNodes,
+    allEdges,
     layoutedNodes,
     layoutedEdges,
     isLoading: isLayoutLoading,
@@ -138,7 +162,8 @@ export default function Dashboard() {
     selectedColorPalette,
     startEndNodes,
     layoutFilters.nodes,
-    layoutFilters.edges
+    layoutFilters.edges,
+    activePathInfo
   );
 
   // Graph interaction hook

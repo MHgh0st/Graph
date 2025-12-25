@@ -253,7 +253,6 @@ function Filters({
       <div className="w-full space-y-3" dir="rtl">
         <Accordion
           keepContentMounted
-          selectionMode="multiple"
           defaultSelectedKeys={["dateRangeFilter"]}
           variant="splitted"
           itemClasses={{

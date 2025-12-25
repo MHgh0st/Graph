@@ -1,29 +1,3 @@
-/**
- * @component Graph
- * @module components/Graph
- *
- * @description
- * Main graph visualization component using React Flow.
- * Renders the interactive process mining graph with nodes and edges.
- *
- * Features:
- * - Node and edge rendering with dynamic styling
- * - Path highlighting for routing/pathfinding mode
- * - Zoom-dependent edge label visibility
- * - Node and edge tooltips on click
- * - Start/End special node handling
- *
- * @example
- * ```tsx
- * <Graph
- *   filePath="/path/to/data.csv"
- *   filters={currentFilters}
- *   utils={{ GraphLayout: layoutProps, GraphInteraction: interactionProps }}
- *   activeSideBar="Routing"
- * />
- * ```
- */
-
 import { useMemo, useCallback, useState, useRef, memo } from "react";
 import {
   ReactFlow,
@@ -60,9 +34,6 @@ import type {
 // TYPE DEFINITIONS
 // ============================================================================
 
-/**
- * Props passed from Dashboard containing graph layout state and methods
- */
 interface GraphLayoutProps {
   allNodes: Node[];
   layoutedNodes: Node[];
@@ -73,9 +44,6 @@ interface GraphLayoutProps {
   setLayoutedEdges: React.Dispatch<React.SetStateAction<Edge[]>>;
 }
 
-/**
- * Props passed from Dashboard containing graph interaction state and handlers
- */
 interface GraphInteractionProps {
   activeTooltipEdgeId: string | null;
   isNodeCardVisible: boolean;
@@ -108,17 +76,11 @@ interface GraphInteractionProps {
   onPaneClick: () => void;
 }
 
-/**
- * Combined utilities prop structure
- */
 interface UtilsProps {
   GraphLayout: GraphLayoutProps;
   GraphInteraction: GraphInteractionProps;
 }
 
-/**
- * Override data for edge tooltips when in path mode
- */
 interface EdgeTooltipOverride {
   label?: string | number;
   meanTime?: string;
@@ -127,20 +89,31 @@ interface EdgeTooltipOverride {
 }
 
 /**
- * Main component props
+ * تایپ اختصاصی برای دیتای یال‌ها
  */
+interface CustomEdgeData extends Record<string, unknown> {
+  tooltipOverrideData?: EdgeTooltipOverride;
+  isTooltipVisible?: boolean;
+  isGhost?: boolean;
+  onEdgeSelect?: (id: string) => void;
+}
+
+/**
+ * تایپ اختصاصی برای دیتای گره‌ها
+ */
+interface CustomNodeData extends Record<string, unknown> {
+  label: string;
+  isGhost?: boolean;
+  type?: string;
+  subLabel?: string;
+}
+
 interface GraphProps {
-  /** Path to the data file */
   filePath: string;
-  /** Current filter configuration */
   filters: FilterTypes;
-  /** Additional CSS classes */
   className?: string;
-  /** Layout and interaction utilities from parent */
   utils: UtilsProps;
-  /** Set of currently filtered node IDs */
   filteredNodeIds?: Set<string>;
-  /** Currently active sidebar tab */
   activeSideBar?: SidebarTab;
 }
 
@@ -148,7 +121,6 @@ interface GraphProps {
 // CONSTANTS
 // ============================================================================
 
-/** Default edge styling options */
 const DEFAULT_EDGE_OPTIONS = {
   markerEnd: {
     type: MarkerType.ArrowClosed,
@@ -158,12 +130,10 @@ const DEFAULT_EDGE_OPTIONS = {
   animated: false,
 } as const;
 
-/** Custom edge type mapping */
 const EDGE_TYPES = {
   default: StyledSmoothStepEdge,
 };
 
-/** Custom node type mapping */
 const NODE_TYPES: NodeTypes = {
   start: CustomNode,
   end: CustomNode,
@@ -171,17 +141,12 @@ const NODE_TYPES: NodeTypes = {
   default: CustomNode,
 };
 
-/** Minimum zoom level to show edge labels */
 const EDGE_LABEL_ZOOM_THRESHOLD = 0.6;
 
 // ============================================================================
 // HELPERS
 // ============================================================================
 
-/**
- * Calculates edge duration override for path visualization.
- * Handles both case search and variant pathfinding scenarios.
- */
 function calculateEdgeOverride(
   edge: Edge,
   activePath: ExtendedPath | null,
@@ -196,7 +161,6 @@ function calculateEdgeOverride(
     if (id === edge.id) edgeIndices.push(idx);
   });
 
-  // Case search mode: use pre-calculated durations
   if (
     activePath._specificEdgeDurations &&
     activePath._specificEdgeDurations[edge.id] !== undefined
@@ -205,7 +169,6 @@ function calculateEdgeOverride(
     const displayLabel = formatDuration(avgDuration);
     const tooltipMeanTime = `${displayLabel} (میانگین)`;
 
-    // Calculate total time for this edge in this case
     const count = activePath._fullPathNodes
       ? activePath._fullPathNodes.filter((_, idx) => {
           if (idx >= activePath._fullPathNodes!.length - 1) return false;
@@ -226,7 +189,6 @@ function calculateEdgeOverride(
     };
   }
 
-  // Variant pathfinding mode: calculate from timings
   if (
     edgeIndices.length > 0 &&
     activePath._variantTimings &&
@@ -272,9 +234,6 @@ function calculateEdgeOverride(
 // COMPONENT
 // ============================================================================
 
-/**
- * Graph component renders the React Flow visualization.
- */
 function Graph({
   className = "",
   utils,
@@ -283,15 +242,12 @@ function Graph({
   filePath,
   filters,
 }: GraphProps): React.ReactElement {
-  // Local state
   const [zoomLevel, setZoomLevel] = useState(1);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Destructure layout utilities
-  const { layoutedNodes, layoutedEdges, isLoading, loadingMessage, setLayoutedNodes } =
+  const { layoutedNodes, layoutedEdges, isLoading, loadingMessage, setLayoutedNodes, setLayoutedEdges } =
     utils.GraphLayout;
 
-  // Destructure interaction utilities
   const {
     activeTooltipEdgeId,
     isEdgeCardVisible,
@@ -314,9 +270,20 @@ function Graph({
     onPaneClick,
   } = utils.GraphInteraction;
 
+  const activePath = useMemo((): ExtendedPath | null => {
+    if (selectedPathIndex !== null && foundPaths?.[selectedPathIndex]) {
+      return foundPaths[selectedPathIndex] as ExtendedPath;
+    }
+    return null;
+  }, [selectedPathIndex, foundPaths]);
+
+  // Ghost elements are now handled in useGraphLayout hook
+  // گره‌ها و یال‌های ghost اکنون در hook useGraphLayout مدیریت می‌شوند
+
   // ============================================================================
   // CALLBACKS
   // ============================================================================
+
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
@@ -350,7 +317,8 @@ function Graph({
   const handleEdgeClickWrapper: EdgeMouseHandler = useCallback(
     (_event, edge) => {
       containerRef.current?.classList.remove("is-interacting");
-      const overrideData = edge.data?.tooltipOverrideData as EdgeTooltipOverride | undefined;
+      const data = edge.data as CustomEdgeData | undefined;
+      const overrideData = data?.tooltipOverrideData;
       handleEdgeSelect(edge.id, overrideData);
     },
     [handleEdgeSelect]
@@ -360,17 +328,24 @@ function Graph({
   // MEMOIZED COMPUTATIONS
   // ============================================================================
 
-  /** Nodes prepared for rendering with highlighting applied */
   const nodesForRender = useMemo(() => {
     const isHighlighting = selectedPathNodes.size > 0;
+    
+    // فیلتر کردن گره‌ها بر اساس فیلتر سایدبار (اگر وجود داشته باشد)
+    // Ghost nodes از طریق useEffect به layoutedNodes اضافه شده‌اند
     const sourceNodes =
       filteredNodeIds && filteredNodeIds.size > 0
-        ? layoutedNodes.filter((node) => filteredNodeIds.has(node.id))
+        ? layoutedNodes.filter((node) => 
+            filteredNodeIds.has(node.id) || 
+            (node.data as CustomNodeData)?.isGhost ||
+            selectedPathNodes.has(node.id)
+          )
         : layoutedNodes;
 
     return sourceNodes.map((node) => {
       const isHighlighted = selectedPathNodes.has(node.id);
       const nodeType = (node.data?.type as string) || "activity";
+      const isGhost = (node.data as CustomNodeData)?.isGhost;
 
       return {
         ...node,
@@ -380,38 +355,31 @@ function Graph({
           label: node.data?.label || node.id,
         },
         style: {
-          width: "fit-content",
-          opacity: isHighlighting && !isHighlighted ? 0.2 : 1,
+          ...node.style,
+          opacity: isHighlighting && !isHighlighted && !isGhost ? 0.2 : 1,
           transition: "opacity 0.3s ease",
         },
       };
     });
-  }, [layoutedNodes, selectedPathNodes, pathStartNodeId, pathEndNodeId, filteredNodeIds]);
+  }, [layoutedNodes, selectedPathNodes, filteredNodeIds]);
 
-  /** Active path for edge calculations */
-  const activePath = useMemo((): ExtendedPath | null => {
-    if (selectedPathIndex !== null && foundPaths?.[selectedPathIndex]) {
-      return foundPaths[selectedPathIndex] as ExtendedPath;
-    }
-    return null;
-  }, [selectedPathIndex, foundPaths]);
-
-  /** Edges prepared for rendering with styling and labels */
   const edgesForRender = useMemo(() => {
     const isHighlighting = selectedPathEdges.size > 0;
     const showEdgeLabels = zoomLevel > EDGE_LABEL_ZOOM_THRESHOLD;
 
+    // Ghost edges از طریق useEffect به layoutedEdges اضافه شده‌اند
     const processedEdges = layoutedEdges.map((edge) => {
-      const isHighlighted = selectedPathEdges.has(edge.id);
+      const edgeData = edge.data as CustomEdgeData | undefined;
+      const isGhost = edgeData?.isGhost === true;
+      
+      const isHighlighted = selectedPathEdges.has(edge.id) || isGhost;
       const isTooltipActive = edge.id === activeTooltipEdgeId;
 
-      // Calculate opacity
       const opacity =
         (isPathFinding || isHighlighting) && !isHighlighted
           ? 0.1
           : edge.style?.opacity ?? 1;
 
-      // Get override data for path mode
       const override = calculateEdgeOverride(edge, activePath, isHighlighted);
       const displayLabel = override?.displayLabel || (edge.label as string);
       const tooltipOverride = override?.tooltipOverride;
@@ -425,20 +393,33 @@ function Graph({
           ...edge.data,
           tooltipOverrideData: tooltipOverride,
           isTooltipVisible: isTooltipActive,
-        },
+          isGhost: isGhost,
+          // تزریق هندلر برای تولتیپ (مهم برای یال‌های Ghost)
+          onEdgeSelect: (id: string) => {
+             handleEdgeSelect(id, tooltipOverride);
+          }
+        } as CustomEdgeData,
         style: {
           ...(edge.style || {}),
           opacity,
           zIndex: isTooltipActive ? 1000 : isHighlighted ? 500 : 0,
+          stroke: isGhost ? "#f59e0b" : edge.style?.stroke,
         },
         focusable: true,
       };
     });
 
-    // Sort edges: active tooltip on top, then highlighted, then others
+    // مرتب‌سازی برای اینکه یال‌های فعال/انتخاب شده رو باشند
     return processedEdges.sort((a, b) => {
       if (a.id === activeTooltipEdgeId) return 1;
       if (b.id === activeTooltipEdgeId) return -1;
+      
+      const aData = a.data as CustomEdgeData;
+      const bData = b.data as CustomEdgeData;
+      
+      if (aData?.isGhost && !bData?.isGhost) return 1;
+      if (!aData?.isGhost && bData?.isGhost) return -1;
+
       const aSelected = selectedPathEdges.has(a.id);
       const bSelected = selectedPathEdges.has(b.id);
       if (aSelected && !bSelected) return 1;
@@ -452,16 +433,17 @@ function Graph({
     isPathFinding,
     activePath,
     zoomLevel,
+    handleEdgeSelect
   ]);
 
-  /** Chart props for EdgeTooltip histogram */
   const edgeChartProps = useMemo(() => {
     if (activeSideBar !== "SearchCaseIds" || !activeTooltipEdgeId || !filePath || !filters) {
       return null;
     }
 
     const activeEdge = edgesForRender.find((e) => e.id === activeTooltipEdgeId);
-    const rawDuration = activeEdge?.data?.tooltipOverrideData?.rawDuration;
+    const activeEdgeData = activeEdge?.data as CustomEdgeData | undefined;
+    const rawDuration = activeEdgeData?.tooltipOverrideData?.rawDuration;
 
     if (activeEdge && typeof rawDuration === "number") {
       return {

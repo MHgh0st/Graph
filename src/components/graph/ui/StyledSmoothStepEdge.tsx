@@ -6,7 +6,7 @@ import {
 } from "@xyflow/react";
 import type { CSSProperties } from "react";
 
-// کامپوننت لیبل (همان کدی که قبلاً اصلاح کردیم و درست بود)
+// کامپوننت لیبل (بدون تغییر)
 const CustomEdgeLabel = ({
   text,
   style,
@@ -53,9 +53,12 @@ export const StyledSmoothStepEdge = (props: EdgeProps) => {
     targetX,
     targetY,
     markerEnd,
+    animated, // <--- دریافت پراپرتی انیمیشن
   } = props;
 
   const { onEdgeSelect } = data || {};
+  // تشخیص یال موقت
+  const isGhost = data?.isGhost === true;
   const isSelfLoop = source === target;
 
   let edgePath: string;
@@ -64,29 +67,17 @@ export const StyledSmoothStepEdge = (props: EdgeProps) => {
 
   if (isSelfLoop) {
     // --- 🔄 منطق رسم حلقه (Self Loop) ---
-    
-    // ۱. تنظیم ابعاد حلقه
-    const loopHeight = 60; // ارتفاع حلقه از بالای گره
-    const loopWidthOffset = 30; // فاصله افقی از لبه‌ها
-    const cornerRadius = 10; // شعاع گردی گوشه‌ها
+    const loopHeight = 60;
+    const loopWidthOffset = 30;
+    const cornerRadius = 10;
 
-    // ۲. محاسبه نقاط کلیدی
-    // فرض بر این است که در گراف چپ-به-راست، سورس سمت راست و تارگت سمت چپ نود است
-    // اما برای اطمینان، ما یک حلقه U شکل بالای نود می‌سازیم
-    
-    // شروع از هندل خروجی (معمولا راست)
     const sX = sourceX;
     const sY = sourceY;
-    // پایان به هندل ورودی (معمولا چپ)
     const tX = targetX;
     const tY = targetY;
 
-    // بالاترین نقطه Y (چون در SVG محور Y به سمت پایین زیاد می‌شود، باید کم کنیم)
-    // اینجا فرض می‌کنیم نود حدود ۵۰ پیکسل ارتفاع دارد، پس از وسط نود بالا می‌رویم
     const topY = Math.min(sY, tY) - loopHeight;
 
-    // ۳. ساخت مسیر (Path)
-    // حرکت: راست -> بالا -> چپ (تا بالای تارگت) -> پایین
     edgePath = `
       M ${sX} ${sY}
       L ${sX + loopWidthOffset} ${sY}
@@ -100,7 +91,6 @@ export const StyledSmoothStepEdge = (props: EdgeProps) => {
       L ${tX} ${tY}
     `;
 
-    // ۴. محاسبه مکان لیبل (وسط خط بالای حلقه)
     labelX = (sX + tX) / 2;
     labelY = topY;
     
@@ -118,6 +108,16 @@ export const StyledSmoothStepEdge = (props: EdgeProps) => {
     }
   };
 
+  // تنظیمات نهایی استایل
+  const edgeStyle = {
+    ...style,
+    stroke: isGhost ? "#f59e0b" : (style?.stroke || "#52525b"),
+    strokeWidth: style?.strokeWidth || 1.5,
+    fill: "none",
+    // اگر گوست است، حتما خط‌چین باشد، وگرنه از استایل والد بگیرد
+    strokeDasharray: isGhost ? "5, 5" : style?.strokeDasharray,
+  };
+
   return (
     <>
       {/* ناحیه نامرئی برای کلیک راحت‌تر (Hit Area) */}
@@ -131,12 +131,10 @@ export const StyledSmoothStepEdge = (props: EdgeProps) => {
       <BaseEdge
         path={edgePath}
         markerEnd={markerEnd}
-        style={{
-          ...style,
-          stroke: style?.stroke || "#52525b",
-          strokeWidth: style?.strokeWidth || 1.5,
-          fill: "none", // بسیار مهم: داخل حلقه رنگ نشود
-        }}
+        style={edgeStyle}
+        // اگر animated true باشد، کلاس استاندارد react-flow را اضافه می‌کنیم
+        // این کلاس مسئول حرکت دادن خط‌چین‌هاست
+        className={animated ? "react-flow__edge-path" : ""}
       />
       
       {/* لیبل */}

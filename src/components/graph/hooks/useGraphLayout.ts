@@ -22,6 +22,15 @@ const layoutOptions = {
   "spacing.nodeNodeBetweenLayers": "50",
 };
 
+/**
+ * Active path info for ghost elements computation
+ * این اطلاعات از مسیر انتخاب شده می‌آید تا گره‌ها و یال‌های ghost محاسبه شوند
+ */
+interface ActivePathInfo {
+  nodes: string[];
+  edges: string[];
+}
+
 export const useGraphLayout = (
   data: any[] | null,
   colorPaletteKey: string,
@@ -30,7 +39,8 @@ export const useGraphLayout = (
     end: string[];
   },
   filteredNodeIds: Set<string> = new Set(),
-  filteredEdgeIds: Set<string> | null = null
+  filteredEdgeIds: Set<string> | null = null,
+  activePathInfo?: ActivePathInfo
 ) => {
   const [allNodes, setAllNodes] = useState<Node[]>([]);
   const [allEdges, setAllEdges] = useState<Edge[]>([]);
@@ -110,6 +120,54 @@ export const useGraphLayout = (
        // اما چون filteredNodeIds هم از بالا پاس داده می‌شود، فرض بر این است که آن درست تنظیم شده.
        // پس فقط روی یال‌ها فیلتر اعمال می‌کنیم.
     }
+
+    // اضافه کردن ghost nodes به لیست گره‌ها (قبل از اجرای ELK)
+    // محاسبه گره‌های ghost از روی activePathInfo
+    if (activePathInfo?.nodes && activePathInfo.nodes.length > 0) {
+      const existingNodeIds = new Set(nodesToLayout.map(n => n.id));
+      const ghostNodeIds = activePathInfo.nodes.filter(id => !existingNodeIds.has(id));
+      const ghostNodes = ghostNodeIds.map((id: string) => ({
+        id: id,
+        type: "activity",
+        position: { x: 0, y: 0 },
+        data: { label: id, isGhost: true },
+        style: {
+          width: 250,
+          border: "2px dashed #f59e0b",
+          backgroundColor: "#fffbeb",
+          color: "#b45309",
+        },
+        draggable: true,
+      } as Node));
+      nodesToLayout = [...nodesToLayout, ...ghostNodes];
+    }
+
+    // اضافه کردن ghost edges به لیست یال‌ها (قبل از اجرای ELK)
+    // محاسبه یال‌های ghost از روی activePathInfo
+    if (activePathInfo?.edges && activePathInfo.edges.length > 0) {
+      const existingEdgeIds = new Set(edgesToLayout.map(e => e.id));
+      const ghostEdgeIds = activePathInfo.edges.filter(id => !existingEdgeIds.has(id));
+      const ghostEdges = ghostEdgeIds.map((edgeId: string) => {
+        const [source, target] = edgeId.split('->');
+        return {
+          id: edgeId,
+          source: source,
+          target: target,
+          type: "default",
+          animated: false,
+          label: "",
+          style: {
+            stroke: "#f59e0b",
+            strokeDasharray: "5, 5",
+            strokeWidth: 2,
+          },
+          data: { isGhost: true },
+        } as Edge;
+      });
+      edgesToLayout = [...edgesToLayout, ...ghostEdges];
+    }
+
+
 
     const nodeHeight = 50;
     const elkNodes = nodesToLayout.map((node: Node) => {
@@ -205,7 +263,7 @@ export const useGraphLayout = (
         console.error("Component: ELK layout failed:", e);
         setIsLoading(false);
       });
-  }, [allNodes, allEdges, colorPaletteKey, startEndNodes, filteredNodeIds, filteredEdgeIds]);
+  }, [allNodes, allEdges, colorPaletteKey, startEndNodes, filteredNodeIds, filteredEdgeIds, activePathInfo]);
 
   return {
     allNodes,
