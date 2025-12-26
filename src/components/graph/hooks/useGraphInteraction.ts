@@ -1,14 +1,94 @@
 import { useState, useCallback, useMemo } from "react";
 import { Node, Edge } from "@xyflow/react";
 import type { Path, Variant, ExtendedPath, NodeTooltipType } from "src/types/types";
+import { formatDuration } from "../../../utils/formatDuration";
+
+// تابع کمکی برای محاسبه اطلاعات یال از روی مسیر (برای یال‌های Ghost)
+function calculatePathData(
+  edgeId: string,
+  activePath: ExtendedPath | null
+): { label?: string | number; meanTime?: string; totalTime?: string } | null {
+  if (!activePath) return null;
+
+  const pathEdges = activePath.edges || [];
+  const edgeIndices: number[] = [];
+
+  pathEdges.forEach((id: string, idx: number) => {
+    if (id === edgeId) edgeIndices.push(idx);
+  });
+
+  // ۱. حالت آمار دقیق (Specific Edge Stats)
+  if (
+    activePath._specificEdgeDurations &&
+    activePath._specificEdgeDurations[edgeId] !== undefined
+  ) {
+    const avgDuration = activePath._specificEdgeDurations[edgeId];
+    const displayLabel = formatDuration(avgDuration);
+    const tooltipMeanTime = `${displayLabel} (میانگین)`;
+
+    const count = activePath._fullPathNodes
+      ? activePath._fullPathNodes.filter((_, idx) => {
+          if (idx >= activePath._fullPathNodes!.length - 1) return false;
+          const src = activePath._fullPathNodes![idx];
+          const trg = activePath._fullPathNodes![idx + 1];
+          return `${src}->${trg}` === edgeId;
+        }).length
+      : 1;
+
+    return {
+      label: 1,
+      meanTime: tooltipMeanTime,
+      totalTime: formatDuration(avgDuration * count),
+    };
+  }
+
+  // ۲. حالت مسیر واریانت (Variant Path)
+  if (
+    edgeIndices.length > 0 &&
+    activePath._variantTimings &&
+    activePath._variantTimings.length > 0 &&
+    typeof activePath._startIndex === "number"
+  ) {
+    let totalDuration = 0;
+    let count = 0;
+
+    edgeIndices.forEach((idx) => {
+      const timeIndex = activePath._startIndex! + idx;
+      const start = activePath._variantTimings![timeIndex];
+      const end = activePath._variantTimings![timeIndex + 1];
+
+      if (typeof start === "number" && typeof end === "number") {
+        totalDuration += Math.max(0, end - start);
+        count++;
+      }
+    });
+
+    if (count > 0) {
+      const displayLabel = formatDuration(totalDuration);
+      const tooltipMeanTime =
+        count > 1 ? `${displayLabel} (مجموع ${count} بار عبور)` : displayLabel;
+      const frequency = activePath._frequency || 0;
+      const tooltipTotalTime = formatDuration(totalDuration * frequency);
+
+      return {
+        label: frequency,
+        meanTime: tooltipMeanTime,
+        totalTime: tooltipTotalTime,
+      };
+    }
+  }
+
+  return null;
+}
 
 export const useGraphInteraction = (
   allNodes: Node[],
   allEdges: Edge[],
+  layoutedEdges: Edge[], // <--- ورودی جدید
+  layoutedNodes: Node[], // <--- ورودی جدید
   variants: Variant[],
   setLayoutedNodes: React.Dispatch<React.SetStateAction<Node[]>>,
   setLayoutedEdges: React.Dispatch<React.SetStateAction<Edge[]>>,
-  // New props for state lifted up
   selectedPathNodes: Set<string>,
   setSelectedPathNodes: React.Dispatch<React.SetStateAction<Set<string>>>,
   selectedPathEdges: Set<string>,
@@ -17,60 +97,27 @@ export const useGraphInteraction = (
   setSelectedPathIndex: React.Dispatch<React.SetStateAction<number | null>>,
   selectedNodeIds: Set<string>
 ) => {
-  const [activeTooltipEdgeId, setActiveTooltipEdgeId] = useState<string | null>(
-    null
-  );
-  
-  const [isNodeCardVisible, setIsNodeCardVisible] = useState<
-    boolean
-  >(false);
-  const [isEdgeCardVisible, setIsEdgeCardVisible] = useState<
-    boolean
-  >(false);
+  const [activeTooltipEdgeId, setActiveTooltipEdgeId] = useState<string | null>(null);
+  const [isNodeCardVisible, setIsNodeCardVisible] = useState<boolean>(false);
+  const [isEdgeCardVisible, setIsEdgeCardVisible] = useState<boolean>(false);
   const [edgeTooltipTitle, setEdgeTooltipTitle] = useState<string | null>(null);
-  const [edgeTooltipData, setEdgeTooltipData] = useState<
-    Array<{ label: string; value: string | number }>
-  >([]);
+  const [edgeTooltipData, setEdgeTooltipData] = useState<Array<{ label: string; value: string | number }>>([]);
   const [nodeTooltipTitle, setNodeTooltipTitle] = useState<string | null>(null);
-  const [nodeTooltipData, setNodeTooltipData] = useState<
-    Array<NodeTooltipType>
-  >([]);
-
+  const [nodeTooltipData, setNodeTooltipData] = useState<Array<NodeTooltipType>>([]);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
-
   const [isPathFinding, setIsPathFinding] = useState(false);
   const [pathStartNodeId, setPathStartNodeId] = useState<string | null>(null);
   const [pathEndNodeId, setPathEndNodeId] = useState<string | null>(null);
   const [foundPaths, setFoundPaths] = useState<ExtendedPath[]>([]);
 
+  // محاسبه activePath
+  const activePath = useMemo((): ExtendedPath | null => {
+    if (selectedPathIndex !== null && foundPaths?.[selectedPathIndex]) {
+      return foundPaths[selectedPathIndex] as ExtendedPath;
+    }
+    return null;
+  }, [selectedPathIndex, foundPaths]);
 
-  
-  
-
-  const outgoingEdgesMap = useMemo(() => {
-    const map = new Map<string, Edge[]>();
-    allEdges.forEach((edge) => {
-      if (!map.has(edge.source)) {
-        map.set(edge.source, []);
-      }
-      map.get(edge.source)!.push(edge);
-    });
-    return map;
-  }, [allEdges]);
-
-  const incomingEdgesMap = useMemo(() => {
-    const map = new Map<string, Edge[]>();
-    allEdges.forEach((edge) => {
-      if (!map.has(edge.target)) {
-        map.set(edge.target, []);
-      }
-      map.get(edge.target)!.push(edge);
-    });
-    return map;
-  }, [allEdges]);
-
-  // مپ برای دسترسی سریع به یال‌ها جهت پیدا کردن ID یال بین دو نود
-  // کلید: "Source->Target" | مقدار: Edge
   const edgeLookupMap = useMemo(() => {
     const map = new Map<string, Edge>();
     allEdges.forEach((edge) => {
@@ -80,45 +127,28 @@ export const useGraphInteraction = (
   }, [allEdges]);
 
   const removePath = useCallback((indexToRemove: number) => {
-    setFoundPaths((prevPaths) => {
-      // حذف مسیر از لیست
-      const newPaths = prevPaths.filter((_, index) => index !== indexToRemove);
-      return newPaths;
-    });
-
-    // اگر مسیری که حذف شده، همان مسیری بوده که الان انتخاب شده (Selected)، انتخاب را بردار
+    setFoundPaths((prevPaths) => prevPaths.filter((_, index) => index !== indexToRemove));
     setSelectedPathIndex((prevIndex) => {
-        if (prevIndex === indexToRemove) return null; // اگر خودش بود، دی‌سلکت کن
-        if (prevIndex !== null && prevIndex > indexToRemove) return prevIndex - 1; // شیفت دادن ایندکس
+        if (prevIndex === indexToRemove) return null;
+        if (prevIndex !== null && prevIndex > indexToRemove) return prevIndex - 1;
         return prevIndex;
     });
   }, [setSelectedPathIndex]);
 
-  // --- تغییر ۱: محاسبه زمان بر اساس دیتای دقیق واریانت ---
   const calculatePathDuration = useCallback((path: Path) => {
-    // اگر مسیر ما از نوع ExtendedPath باشد و مقدار دقیق داشته باشد، همان را برمی‌گردانیم
     const extPath = path as ExtendedPath;
     if (typeof extPath._variantDuration === "number") {
       return {
         totalDuration: extPath._variantDuration,
-        averageDuration:
-          path.edges.length > 0
-            ? extPath._variantDuration
-            : 0,
+        averageDuration: path.edges.length > 0 ? extPath._variantDuration : 0,
       };
     }
-
-    // فال‌بک به روش قدیمی (جمع زدن میانگین یال‌ها) اگر دیتای واریانت نبود
-    // (این بخش شاید دیگه استفاده نشه ولی برای اطمینان میمونه)
-    let totalDuration = 0;
-    // ... (کد قبلی محاسبه دستی)
-    return { totalDuration, averageDuration: 0 };
+    return { totalDuration: 0, averageDuration: 0 };
   }, []);
 
   const handleEdgeSelect = useCallback(
     (
       edgeId: string,
-      // پارامتر جدید برای دریافت اطلاعات جایگزین
       overrides?: {
         label?: string | number;
         meanTime?: string;
@@ -126,117 +156,75 @@ export const useGraphInteraction = (
       }
     ) => {
       setSelectedEdgeId(edgeId);
-      const selectedEdge = allEdges.find((e) => e.id === edgeId);
+      // ابتدا در layoutedEdges (شامل Ghost) جستجو کن، اگر نبود در allEdges
+      const selectedEdge = layoutedEdges.find((e) => e.id === edgeId) || allEdges.find((e) => e.id === edgeId);
 
       setLayoutedEdges((prevEdges) => {
         return prevEdges.map((edge) => {
           const isSelected = edge.id === edgeId;
-          const originalStroke =
-            (edge.data as any)?.originalStroke ||
-            (edge.style?.stroke?.includes("rgba")
-              ? edge.style.stroke
-              : edge.style?.stroke || "#3b82f6");
-          
-          const originalStrokeWidth =
-            (edge.data as any)?.originalStrokeWidth ??
-            (edge.selected ? 2 : (edge.style?.strokeWidth ?? 2));
+          const originalStroke = (edge.data as any)?.originalStroke || "#3b82f6";
+          const originalStrokeWidth = (edge.data as any)?.originalStrokeWidth ?? 2;
 
           return {
             ...edge,
             selected: isSelected,
-            data: {
-              ...edge.data,
-              originalStroke,
-              originalStrokeWidth,
-            },
             style: {
               ...(edge.style || {}),
               strokeWidth: isSelected ? 4 : originalStrokeWidth,
               stroke: isSelected ? "#FFC107" : originalStroke,
               zIndex: isSelected ? 500 : undefined,
-              strokeOpacity: isSelected
-                ? 1
-                : originalStroke.includes("rgba")
-                  ? parseFloat(originalStroke.split(",")[3])
-                  : 1,
             },
           };
         });
       });
 
-      // برای یال‌های ghost که در allEdges نیستند، از overrides استفاده می‌کنیم
-      const isGhostEdge = !selectedEdge && edgeId.includes("->");
+      const isGhostEdge = (selectedEdge?.data as any)?.isGhost;
       
+      // اگر اوررایدها نیامده‌اند (مثلاً کلیک از لیست NodeTooltip)، خودمان محاسبه می‌کنیم
+      let finalOverrides = overrides;
+      if (!finalOverrides && isGhostEdge) {
+         const calculated = calculatePathData(edgeId, activePath);
+         if (calculated) {
+             finalOverrides = calculated;
+         }
+      }
+
       if (selectedEdge || isGhostEdge) {
         const dataToShow: Array<{ label: string; value: string | number }> = [];
-
         
-        // --- تغییر: استفاده از مقادیر جایگزین (Override) در صورت وجود ---
+        const labelValue = finalOverrides?.label !== undefined 
+          ? finalOverrides.label 
+          : (selectedEdge?.data?.Case_Count as string | number);
         
-        // ۱. تعداد (اگر اورراید شده باشد، مثلا تعداد عبور در مسیر)
-        const labelValue = overrides?.label !== undefined 
-          ? overrides.label 
-          : (selectedEdge?.data?.Case_Count as string | number | undefined);
-        if (labelValue !== undefined && labelValue !== null) {
-          dataToShow.push({ label: "تعداد", value: labelValue });
-        }
+        if (labelValue !== undefined) dataToShow.push({ label: "تعداد", value: labelValue });
 
-        // ۲. میانگین زمان (اگر اورراید شده باشد، زمان دقیق مسیر)
-        const meanTimeValue = overrides?.meanTime || (selectedEdge?.data?.Tooltip_Mean_Time as string | undefined);
-        if (meanTimeValue) {
-          dataToShow.push({
-            label: "میانگین زمان",
-            value: meanTimeValue,
-          });
-        }
+        const meanTimeValue = finalOverrides?.meanTime || (selectedEdge?.data?.Tooltip_Mean_Time as string);
+        if (meanTimeValue) dataToShow.push({ label: "میانگین زمان", value: meanTimeValue });
 
-        // ۳. زمان کل
-        const totalTimeValue = overrides?.totalTime || (selectedEdge?.data?.Tooltip_Total_Time as string | undefined);
-        if (totalTimeValue) {
-          dataToShow.push({
-            label: "زمان کل",
-            value: totalTimeValue,
-          });
-        }
-        // -----------------------------------------------------------
-
+        const totalTimeValue = finalOverrides?.totalTime || (selectedEdge?.data?.Tooltip_Total_Time as string);
+        if (totalTimeValue) dataToShow.push({ label: "زمان کل", value: totalTimeValue });
 
         setEdgeTooltipData(dataToShow);
 
-        // برای یال‌های ghost، source و target را از edgeId استخراج می‌کنیم
-        let sourceId: string;
-        let targetId: string;
+        const sourceId = selectedEdge?.source || edgeId.split("->")[0];
+        const targetId = selectedEdge?.target || edgeId.split("->")[1];
         
-        if (selectedEdge) {
-          sourceId = selectedEdge.source;
-          targetId = selectedEdge.target;
-        } else {
-          // فرمت edgeId: "sourceId->targetId"
-          const parts = edgeId.split("->");
-          sourceId = parts[0];
-          targetId = parts[1];
-        }
-
-        const sourceNode = allNodes.find((n) => n.id === sourceId);
-        const targetNode = allNodes.find((n) => n.id === targetId);
-        setEdgeTooltipTitle(
-          `از یال ${sourceNode?.data?.label || sourceId} به ${targetNode?.data?.label || targetId}`
-        );
-
-        setIsEdgeCardVisible(true)
+        // پیدا کردن نام گره‌ها (از layoutedNodes استفاده می‌کنیم که Ghostها را دارد)
+        const sourceNode = layoutedNodes.find((n) => n.id === sourceId) || allNodes.find((n) => n.id === sourceId);
+        const targetNode = layoutedNodes.find((n) => n.id === targetId) || allNodes.find((n) => n.id === targetId);
+        
+        setEdgeTooltipTitle(`از یال ${sourceNode?.data?.label || sourceId} به ${targetNode?.data?.label || targetId}`);
+        setIsEdgeCardVisible(true);
         setActiveTooltipEdgeId(edgeId);
       } else {
-        setIsEdgeCardVisible(false)
+        setIsEdgeCardVisible(false);
         setActiveTooltipEdgeId(null);
       }
 
-      setLayoutedNodes((prevNodes) =>
-        prevNodes.map((node) => ({ ...node, selected: false }))
-      );
+      setLayoutedNodes((prevNodes) => prevNodes.map((node) => ({ ...node, selected: false })));
     },
-    [allEdges, allNodes, setLayoutedEdges, setLayoutedNodes]
+    [allEdges, layoutedEdges, allNodes, layoutedNodes, activePath, setLayoutedEdges, setLayoutedNodes]
   );
-
 
   const handleSelectPath = (path: Path, index: number) => {
     setSelectedPathNodes(new Set(path.nodes));
@@ -245,116 +233,87 @@ export const useGraphInteraction = (
   };
 
   const handleSelectOutlier = (outlierPath: Path, index: number) => {
-    const edgeIds = new Set(outlierPath.edges);
-    const nodeIds = new Set(outlierPath.nodes);
-
-    setSelectedPathEdges(edgeIds);
-    setSelectedPathNodes(nodeIds);
-
-    // outlierPath همیشه در ایندکس 0 قرار می‌گیرد
+    setSelectedPathEdges(new Set(outlierPath.edges));
+    setSelectedPathNodes(new Set(outlierPath.nodes));
     setFoundPaths([outlierPath]);
-    // باید از ایندکس 0 استفاده کنیم چون آرایه فقط یک عضو دارد
     setSelectedPathIndex(0);
   }
 
-
-  // --- حذف توابع setupWorker و useEffect مربوطه ---
-
-  // --- تغییر ۲: منطق جدید مسیریابی با استفاده از Variants ---
   const handleNodeClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
       setActiveTooltipEdgeId(null);
 
-      // حالت عادی (نمایش تولتیپ نود)
       if (!isPathFinding) {
-        const nodeLabel = (node.data?.label as string) || (node.id as string);
-        setNodeTooltipData([]);
-
-        const outgoingEdges = outgoingEdgesMap.get(node.id) || [];
-        const outgoingEdgeIds = new Set(outgoingEdges.map((e) => e.id));
+        const nodeLabel = (node.data?.label as string) || node.id;
         
-        const outgoingTooltipData = outgoingEdges.map((edge) => {
-          const targetNode = allNodes.find((n) => n.id === edge.target);
-          return {
-            label: (targetNode?.data?.label as string) || (edge.target as string), // نام نود مقصد
-            weight: (edge.label as string) || "N/A",
-            edgeId: edge.id,
-            direction: "outgoing", // جهت یال
-          };
-        });
+        // اصلاح: استفاده از layoutedEdges برای پیدا کردن همه یال‌ها (شامل Ghost)
+        const outgoingEdges = layoutedEdges.filter(e => e.source === node.id);
+        const incomingEdges = layoutedEdges.filter(e => e.target === node.id);
+        
+        const outgoingEdgeIds = new Set(outgoingEdges.map(e => e.id));
+        const incomingEdgeIds = new Set(incomingEdges.map(e => e.id));
 
-        // 2. دریافت یال‌های ورودی (Incoming) - بخش جدید
-        const incomingEdges = incomingEdgesMap.get(node.id) || [];
-        const incomingEdgeIds = new Set(incomingEdges.map((e) => e.id));
+        // تابع کمکی برای پیدا کردن لیبل نود (اول در layoutedNodes، بعد allNodes)
+        const getNodeLabel = (id: string) => {
+            const n = layoutedNodes.find(n => n.id === id) || allNodes.find(n => n.id === id);
+            return (n?.data?.label as string) || id;
+        };
 
-        const incomingTooltipData = incomingEdges.map((edge) => {
-          const sourceNode = allNodes.find((n) => n.id === edge.source);
-          return {
-            label: (sourceNode?.data?.label as string) || (edge.source as string), // نام نود مبدا
-            weight: (edge.label as string) || "N/A",
-            edgeId: edge.id,
-            direction: "incoming", // جهت یال
-          };
-        });
+        // ساخت داده‌های تولتیپ با استفاده از لیبل صحیح
+        const outgoingTooltipData = outgoingEdges.map((edge) => ({
+          label: getNodeLabel(edge.target),
+          weight: (edge.label as string) || "N/A",
+          edgeId: edge.id,
+          direction: "outgoing",
+        }));
 
-        // ترکیب داده‌ها برای نمایش در تولتیپ
-        // (نوع NodeTooltipType باید فیلد direction را پشتیبانی کند یا از any استفاده کنید)
+        const incomingTooltipData = incomingEdges.map((edge) => ({
+          label: getNodeLabel(edge.source),
+          weight: (edge.label as string) || "N/A",
+          edgeId: edge.id,
+          direction: "incoming",
+        }));
+
         setIsNodeCardVisible(true);
         setNodeTooltipData([...outgoingTooltipData, ...incomingTooltipData] as any);
         setNodeTooltipTitle(nodeLabel);
 
-        // هایلایت کردن نود انتخاب شده
-        setLayoutedNodes((nds) =>
-          nds.map((n) => ({ ...n, selected: n.id === node.id }))
-        );
+        // هایلایت نودها
+        setLayoutedNodes((nds) => nds.map((n) => ({ ...n, selected: n.id === node.id })));
 
-        // هایلایت کردن یال‌ها (ورودی و خروجی)
+        // هایلایت یال‌ها (شامل Ghost)
         setLayoutedEdges((prevEdges) =>
           prevEdges.map((edge) => {
-            const originalStroke =
-              (edge.data as any)?.originalStroke ||
-              (edge.style?.stroke?.includes("rgba")
-                ? edge.style.stroke
-                : edge.style?.stroke || "#05ff69ff");
-
-             const originalStrokeWidth =
-                (edge.data as any)?.originalStrokeWidth ??
-                (edge.selected ? 2 : (edge.style?.strokeWidth ?? 2));
+            const originalStroke = (edge.data as any)?.originalStroke || "#05ff69ff";
+            const originalStrokeWidth = (edge.data as any)?.originalStrokeWidth ?? 2;
 
             const isOutgoing = outgoingEdgeIds.has(edge.id);
             const isIncoming = incomingEdgeIds.has(edge.id);
             
-            // رنگ‌بندی: خروجی قرمز، ورودی سبز (یا هر رنگی که دوست دارید)
             let strokeColor = originalStroke;
             if (isOutgoing) strokeColor = "#ef4444"; 
-            else if (isIncoming) strokeColor = "#a6058eff"; 
+            else if (isIncoming) strokeColor = "#22c55e"; 
 
             const isSelected = isOutgoing || isIncoming;
 
             return {
               ...edge,
               selected: isSelected,
-              data: {
-                  ...edge.data,
-                  originalStroke,
-                  originalStrokeWidth,
-              },
               style: {
                 ...edge.style,
                 stroke: strokeColor,
                 zIndex: isSelected ? 1000 : undefined,
                 strokeWidth: isSelected ? 3 : originalStrokeWidth,
               },
-            } as any;
+            };
           })
         );
         return;
       }
 
-      // --- حالت مسیریابی (Path Finding) ---
+      // ... (بخش مسیریابی بدون تغییر) ...
       setActiveTooltipEdgeId(null);
 
-      // ۱. انتخاب نقطه شروع
       if (!pathStartNodeId) {
         setPathStartNodeId(node.id);
         setPathEndNodeId(null);
@@ -364,63 +323,25 @@ export const useGraphInteraction = (
         return;
       }
 
-      // ۲. انتخاب نقطه پایان و اجرای الگوریتم روی Variants
       if (pathStartNodeId && !pathEndNodeId && node.id !== pathStartNodeId) {
         const endId = node.id;
         setPathEndNodeId(endId);
 
-        // --- Pathfinding algorithm using Variants ---
-
         const validPaths: ExtendedPath[] = [];
-
         variants.forEach((variant) => {
-          let startIdx = -1;
-          let endIdx = -1;
+          let startIdx = pathStartNodeId === "START_NODE" ? 0 : variant.Variant_Path.indexOf(pathStartNodeId);
+          let endIdx = endId === "END_NODE" ? variant.Variant_Path.length - 1 : variant.Variant_Path.lastIndexOf(endId);
 
-          if (pathStartNodeId === "START_NODE") {
-            // اگر شروع "START_NODE" بود، همیشه اولین فعالیت واریانت را در نظر بگیر
-            startIdx = 0;
-          } else {
-            startIdx = variant.Variant_Path.indexOf(pathStartNodeId);
-          }
-
-          // --- ب) پیدا کردن ایندکس پایان ---
-          if (endId === "END_NODE") {
-            // اگر پایان "END_NODE" بود، همیشه آخرین فعالیت واریانت را در نظر بگیر
-            endIdx = variant.Variant_Path.length - 1;
-          } else {
-            // از lastIndexOf استفاده می‌کنیم (جهت اطمینان از ترتیب زمانی)
-            endIdx = variant.Variant_Path.lastIndexOf(endId);
-          }
-
-          // شرط: هر دو نود باشند و شروع قبل از پایان باشد
           if (startIdx !== -1 && endIdx !== -1 && startIdx < endIdx) {
-            // برش مسیر (Slice)
             const pathNodes = variant.Variant_Path.slice(startIdx, endIdx + 1);
-            const isAbsoluteStart = startIdx === 0;
-            const isAbsoluteEnd = endIdx === variant.Variant_Path.length - 1;
-            const pathType = isAbsoluteStart && isAbsoluteEnd ? "absolute" : "relative";
-
-            // تب مسیریابی مستقل از گره‌های انتخاب شده در فیلترها است
-            // دیگر نیازی به بررسی selectedNodeIds نیست
-
-
-            // پیدا کردن ID یال‌ها برای هایلایت
             const pathEdges: string[] = [];
             for (let i = 0; i < pathNodes.length - 1; i++) {
               const source = pathNodes[i];
               const target = pathNodes[i + 1];
-              const edge = edgeLookupMap.get(`${source}->${target}`);
-              if (edge) {
-                pathEdges.push(edge.id);
-              }
+              pathEdges.push(`${source}->${target}`);
             }
 
-            // محاسبه زمان دقیق از روی Avg_Timings واریانت
-            // زمان رسیدن به مقصد منهای زمان رسیدن به مبدا
-            const startTime = variant.Avg_Timings[startIdx];
-            const endTime = variant.Avg_Timings[endIdx];
-            const accurateDuration = endTime - startTime;
+            const accurateDuration = variant.Avg_Timings[endIdx] - variant.Avg_Timings[startIdx];
 
             validPaths.push({
               nodes: pathNodes,
@@ -430,23 +351,18 @@ export const useGraphInteraction = (
               _fullPathNodes: variant.Variant_Path,
               _startIndex: startIdx,
               _endIndex: endIdx,
-              _pathType: pathType,
+              _pathType: startIdx === 0 && endIdx === variant.Variant_Path.length - 1 ? "absolute" : "relative",
               _variantTimings: variant.Avg_Timings,
             });
           }
         });
 
-        // مرتب‌سازی بر اساس تکرار (Frequency) - اختیاری
-        // validPaths.sort((a, b) => (b._frequency || 0) - (a._frequency || 0));
-
         setFoundPaths(validPaths);
-
         setSelectedPathNodes(new Set([pathStartNodeId, endId]));
         setSelectedPathEdges(new Set());
         return;
       }
 
-      // ریست کردن برای انتخاب شروع جدید
       setPathStartNodeId(node.id);
       setPathEndNodeId(null);
       setFoundPaths([]);
@@ -457,21 +373,18 @@ export const useGraphInteraction = (
       isPathFinding,
       pathStartNodeId,
       pathEndNodeId,
-      outgoingEdgesMap,
-      incomingEdgesMap,
+      layoutedEdges, // وابستگی جدید
+      layoutedNodes, // وابستگی جدید
       allNodes,
-      variants, // وابستگی جدید
-      edgeLookupMap,
+      variants,
       setLayoutedEdges,
       setLayoutedNodes,
-      setSelectedPathNodes, // Added dependency
-      setSelectedPathEdges, // Added dependency
-      selectedNodeIds,
+      setSelectedPathNodes,
+      setSelectedPathEdges,
     ]
   );
 
   const closeNodeTooltip = () => {
-    // ... (همان کد قبلی)
     setIsNodeCardVisible(false);
     setNodeTooltipTitle(null);
     setLayoutedNodes((nds) => nds.map((n) => ({ ...n, selected: false })));  
@@ -488,6 +401,7 @@ export const useGraphInteraction = (
     );
     closeEdgeTooltip();
   };
+
   const closeEdgeTooltip= () => {
     setIsEdgeCardVisible(false)
     setSelectedEdgeId(null);

@@ -7,19 +7,50 @@ import { colorPalettes } from "../../../constants/colorPalettes";
 const elk = new ELK();
 
 const layoutOptions = {
+  // الگوریتم اصلی: لایه‌بندی
   algorithm: "layered",
   direction: "RIGHT",
-  "layered.spacing.nodeNode": "150",
-  "layered.spacing.layerLayer": "350",
-  edgeRouting: "POLYLINE",
-  "layered.nodePlacement.strategy": "SIMPLE",
-  "layered.crossingMinimization.strategy": "LAYER_SWEEP",
+
+  // --- 1. استراتژی لایه‌بندی: LONGEST_PATH ---
+  // این مهم‌ترین تغییر است. این گزینه باعث می‌شود گراف تا حد امکان "کشیده" و "خطی" شود
+  // و از فشرده‌سازی بیش‌از‌حد جلوگیری می‌کند.
   "layered.layering.strategy": "LONGEST_PATH",
+
+  // --- 2. استراتژی قرارگیری نودها: BRANDES_KOEPF ---
+  // این گزینه سعی می‌کند نودهای متصل را دقیقاً روبروی هم (در یک خط افقی) قرار دهد.
+  // برای ایجاد حس "خط تولید" یا "فلوچارت خطی" عالی است.
+  "layered.nodePlacement.strategy": "BRANDES_KOEPF",
+
+  // --- 3. افزایش فاصله‌ها (برای باز شدن گراف) ---
+  // فاصله افقی بین ستون‌ها (لایه‌ها). هرچه بیشتر باشد، گراف عریض‌تر می‌شود.
+  "layered.spacing.layerLayer": "600", 
+  
+  // فاصله عمودی بین نودها. زیاد کردن این مقدار از هم‌پوشانی عمودی جلوگیری می‌کند.
+  "layered.spacing.nodeNode": "300",
+  "layered.spacing.nodeNodeBetweenLayers": "300",
+
+  // --- 4. تنظیمات یال‌ها ---
+  // استفاده از خطوط شکسته (Orthogonal) برای نظم بیشتر
+  "elk.edgeRouting": "ORTHOGONAL",
+  
+  // ادغام یال‌ها را خاموش یا روشن کنید.
+  // اگر گراف خیلی شلوغ است، "true" باشد بهتر است. اما اگر می‌خواهید همه مسیرها را جدا ببینید، "false" کنید.
+  "layered.mergeEdges": "true", 
+
+  // فاصله یال‌ها از هم و از نودها
+  "spacing.edgeNode": "40",
+  "spacing.edgeEdge": "30",
+
+  // --- 5. سایر تنظیمات ---
+  // جدا کردن اجزای غیرمتصل (اگر گراف چند تیکه است)
   "elk.separateConnectedComponents": "true",
-  "layered.cycleBreaking.strategy": "GREEDY",
-  "spacing.edgeNode": "50",
-  "spacing.edgeEdge": "50",
-  "spacing.nodeNodeBetweenLayers": "50",
+  
+  // تلاش بیشتر برای کاهش تقاطع خطوط
+  "layered.crossingMinimization.strategy": "LAYER_SWEEP",
+  "layered.crossingMinimization.semiInteractive": "true",
+  
+  // اجبار پورت‌ها به چپ و راست (بسیار مهم برای ظاهر خطی)
+  "org.eclipse.elk.portConstraints": "FIXED_SIDE",
 };
 
 /**

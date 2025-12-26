@@ -208,7 +208,9 @@ export default function Dashboard() {
     handleSelectOutlier,
   } = useGraphInteraction(
     allNodes,
+    allEdges,
     layoutedEdges,
+    layoutedNodes,
     variants,
     setLayoutedNodes,
     setLayoutedEdges,

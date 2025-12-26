@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState, useRef, memo } from "react";
+import { useMemo, useCallback, useState, useRef, memo, useEffect } from "react";
 import {
   ReactFlow,
   Background,
@@ -89,9 +89,6 @@ interface EdgeTooltipOverride {
   rawDuration?: number;
 }
 
-/**
- * تایپ اختصاصی برای دیتای یال‌ها
- */
 interface CustomEdgeData extends Record<string, unknown> {
   tooltipOverrideData?: EdgeTooltipOverride;
   isTooltipVisible?: boolean;
@@ -99,9 +96,6 @@ interface CustomEdgeData extends Record<string, unknown> {
   onEdgeSelect?: (id: string) => void;
 }
 
-/**
- * تایپ اختصاصی برای دیتای گره‌ها
- */
 interface CustomNodeData extends Record<string, unknown> {
   label: string;
   isGhost?: boolean;
@@ -279,13 +273,113 @@ function Graph({
     return null;
   }, [selectedPathIndex, foundPaths]);
 
-  // Ghost elements are now handled in useGraphLayout hook
-  // گره‌ها و یال‌های ghost اکنون در hook useGraphLayout مدیریت می‌شوند
+  // پیدا کردن ID گره انتخاب شده برای اعمال افکت‌های بصری
+  const selectedNodeId = useMemo(() => {
+    return layoutedNodes.find((n) => n.selected)?.id;
+  }, [layoutedNodes]);
+
+  // ============================================================================
+  // EFFECT: Inject Ghost NODES into Main Layout
+  // ============================================================================
+  useEffect(() => {
+    if (activeSideBar !== "SearchCaseIds" || !activePath?.nodes) {
+      setLayoutedNodes((prev) => {
+        const hasGhost = prev.some(n => (n.data as CustomNodeData).isGhost);
+        if (!hasGhost) return prev;
+        return prev.filter((n) => !(n.data as CustomNodeData).isGhost);
+      });
+      return;
+    }
+
+    setLayoutedNodes((prevNodes) => {
+      const cleanNodes = prevNodes.filter((n) => !(n.data as CustomNodeData).isGhost);
+      const existingNodeIds = new Set(cleanNodes.map((n) => n.id));
+      
+      const missingNodeIds = activePath.nodes.filter((id) => !existingNodeIds.has(id));
+      
+      if (missingNodeIds.length === 0) {
+         if (prevNodes.length === cleanNodes.length) return prevNodes;
+         return cleanNodes;
+      }
+
+      const newGhostNodes = missingNodeIds.map((id, index) => ({
+        id: id,
+        type: "activity",
+        position: { x: 50 + index * 200, y: -150 },
+        data: { label: id, isGhost: true } as CustomNodeData,
+        style: {
+          width: "fit-content",
+          border: "2px dashed #f59e0b",
+          backgroundColor: "#fffbeb",
+          color: "#b45309",
+        },
+        draggable: true,
+      } as Node));
+
+      return [...cleanNodes, ...newGhostNodes];
+    });
+  }, [activePath, activeSideBar, setLayoutedNodes]);
+
+  // ============================================================================
+  // EFFECT: Inject Ghost EDGES into Main Layout
+  // ============================================================================
+  useEffect(() => {
+    if (activeSideBar !== "SearchCaseIds" || !activePath?.nodes) {
+      setLayoutedEdges((prev) => {
+          const hasGhost = prev.some(e => (e.data as CustomEdgeData).isGhost);
+          if(!hasGhost) return prev;
+          return prev.filter((e) => !(e.data as CustomEdgeData).isGhost);
+      });
+      return;
+    }
+
+    setLayoutedEdges((prevEdges) => {
+      const cleanEdges = prevEdges.filter((e) => !(e.data as CustomEdgeData).isGhost);
+      const existingEdgeIds = new Set(cleanEdges.map((e) => e.id));
+      
+      const newGhostEdges: Edge[] = [];
+      const pathNodes = activePath.nodes;
+
+      for (let i = 0; i < pathNodes.length - 1; i++) {
+        const src = pathNodes[i];
+        const trg = pathNodes[i + 1];
+        const edgeId = `${src}->${trg}`;
+
+        if (!existingEdgeIds.has(edgeId)) {
+          newGhostEdges.push({
+            id: edgeId,
+            source: src,
+            target: trg,
+            type: "default",
+            animated: true,
+            label: "",
+            style: {
+              stroke: "#f59e0b",
+              strokeDasharray: "5, 5",
+              strokeWidth: 2,
+              opacity: 1,
+            },
+            data: { 
+                isGhost: true,
+            } as CustomEdgeData,
+          } as Edge);
+        }
+      }
+
+      if (newGhostEdges.length === 0) {
+         if (prevEdges.length === cleanEdges.length) return prevEdges;
+         return cleanEdges;
+      }
+
+      return [...cleanEdges, ...newGhostEdges];
+    });
+
+  }, [activePath, activeSideBar, setLayoutedEdges]);
+
 
   // ============================================================================
   // CALLBACKS
   // ============================================================================
-
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
@@ -327,14 +421,12 @@ function Graph({
   );
 
   // ============================================================================
-  // MEMOIZED COMPUTATIONS
+  // MEMOIZED COMPUTATIONS (UPDATED VISUALS)
   // ============================================================================
 
   const nodesForRender = useMemo(() => {
-    const isHighlighting = selectedPathNodes.size > 0;
+    const isHighlightingPath = selectedPathNodes.size > 0;
     
-    // فیلتر کردن گره‌ها بر اساس فیلتر سایدبار (اگر وجود داشته باشد)
-    // Ghost nodes از طریق useEffect به layoutedNodes اضافه شده‌اند
     const sourceNodes =
       filteredNodeIds && filteredNodeIds.size > 0
         ? layoutedNodes.filter((node) => 
@@ -345,51 +437,79 @@ function Graph({
         : layoutedNodes;
 
     return sourceNodes.map((node) => {
-      const isHighlighted = selectedPathNodes.has(node.id);
-      const nodeType = (node.data?.type as string) || "activity";
       const isGhost = (node.data as CustomNodeData)?.isGhost;
+      const isPathHighlighted = selectedPathNodes.has(node.id);
+      const isNodeSelected = node.id === selectedNodeId;
+      
+      let opacity = 1;
+      let filter = "none";
+
+      if (selectedNodeId) {
+        // حالت انتخاب تک گره
+        if (!isNodeSelected && !isGhost) {
+            opacity = 0.5; // مقدار جدید (به جای 0.2) برای خوانایی بهتر
+            filter = "grayscale(100%)";
+        }
+      } else if (isHighlightingPath) {
+        // حالت مسیریابی
+        if (!isPathHighlighted && !isGhost) {
+            opacity = 0.5; // برای هماهنگی، در حالت مسیر هم کمی واضح‌تر باشد
+        }
+      }
 
       return {
         ...node,
-        type: nodeType,
+        type: (node.data?.type as string) || "activity",
         data: {
           ...node.data,
           label: node.data?.label || node.id,
         },
         style: {
           ...node.style,
-          opacity: isHighlighting && !isHighlighted && !isGhost ? 0.2 : 1,
-          transition: "opacity 0.3s ease",
+          opacity,
+          filter,
+          transition: "all 0.4s ease",
         },
       };
     });
-  }, [layoutedNodes, selectedPathNodes, filteredNodeIds]);
+  }, [layoutedNodes, selectedPathNodes, filteredNodeIds, selectedNodeId]);
 
   const edgesForRender = useMemo(() => {
-    const isHighlighting = selectedPathEdges.size > 0;
+    const isHighlightingPath = selectedPathEdges.size > 0;
     const showEdgeLabels = zoomLevel > EDGE_LABEL_ZOOM_THRESHOLD;
 
-    // Ghost edges از طریق useEffect به layoutedEdges اضافه شده‌اند
     const processedEdges = layoutedEdges.map((edge) => {
       const edgeData = edge.data as CustomEdgeData | undefined;
       const isGhost = edgeData?.isGhost === true;
-      
-      // بررسی اینکه آیا یال بین دو گره از مسیر انتخاب شده است
-      const isEdgeBetweenPathNodes = selectedPathNodes.has(edge.source) && selectedPathNodes.has(edge.target);
-      const isHighlighted = selectedPathEdges.has(edge.id) || isGhost || isEdgeBetweenPathNodes;
       const isTooltipActive = edge.id === activeTooltipEdgeId;
 
-      // در حالت مسیریابی، یال‌هایی که بین گره‌های مسیر هستند نباید کم‌رنگ شوند
-      const opacity =
-        (isPathFinding || isHighlighting) && !isHighlighted
-          ? 0.1
-          : edge.style?.opacity ?? 1;
+      const isEdgeBetweenPathNodes = selectedPathNodes.has(edge.source) && selectedPathNodes.has(edge.target);
+      const isPathHighlighted = selectedPathEdges.has(edge.id) || isGhost || isEdgeBetweenPathNodes;
 
+      const isConnectedToSelectedNode = selectedNodeId && (edge.source === selectedNodeId || edge.target === selectedNodeId);
 
-      const override = calculateEdgeOverride(edge, activePath, isHighlighted);
+      let opacity = 1;
+      let grayscale = false;
+
+      if (selectedNodeId) {
+        // حالت انتخاب تک گره
+        if (!isConnectedToSelectedNode && !isGhost) {
+            opacity = 0.25; // مقدار جدید (به جای 0.1)
+            grayscale = true;
+        }
+      } else if (isPathFinding || isHighlightingPath) {
+        // حالت مسیریابی
+        if (!isPathHighlighted) {
+            opacity = 0.25; // هماهنگ با حالت بالا
+        }
+      }
+
+      const override = calculateEdgeOverride(edge, activePath, isPathHighlighted);
       const displayLabel = override?.displayLabel || (edge.label as string);
       const tooltipOverride = override?.tooltipOverride;
-      const finalLabel = isHighlighted || showEdgeLabels ? displayLabel : "";
+      
+      const showLabel = (isConnectedToSelectedNode || isPathHighlighted || showEdgeLabels) && opacity > 0.5;
+      const finalLabel = showLabel ? displayLabel : "";
 
       return {
         ...edge,
@@ -400,7 +520,6 @@ function Graph({
           tooltipOverrideData: tooltipOverride,
           isTooltipVisible: isTooltipActive,
           isGhost: isGhost,
-          // تزریق هندلر برای تولتیپ (مهم برای یال‌های Ghost)
           onEdgeSelect: (id: string) => {
              handleEdgeSelect(id, tooltipOverride);
           }
@@ -408,16 +527,19 @@ function Graph({
         style: {
           ...(edge.style || {}),
           opacity,
-          zIndex: isTooltipActive ? 1000 : isHighlighted ? 500 : 0,
+          filter: grayscale ? "grayscale(100%)" : "none",
+          zIndex: isTooltipActive ? 1000 : (isPathHighlighted || isConnectedToSelectedNode) ? 500 : 0,
           stroke: isGhost 
-            ? (isTooltipActive ? "#FFC107" : "#6c6c6cff") 
+            ? (isTooltipActive 
+                ? "#FFC107" 
+                : (edge.selected ? edge.style?.stroke : "#6c6c6cff")) // اگر انتخاب شده، رنگ استایل (سبز/قرمز) را بگیر
             : edge.style?.stroke,
+          transition: "all 0.4s ease",
         },
         focusable: true,
       };
     });
 
-    // مرتب‌سازی برای اینکه یال‌های فعال/انتخاب شده رو باشند
     return processedEdges.sort((a, b) => {
       if (a.id === activeTooltipEdgeId) return 1;
       if (b.id === activeTooltipEdgeId) return -1;
@@ -441,15 +563,14 @@ function Graph({
     isPathFinding,
     activePath,
     zoomLevel,
-    handleEdgeSelect
+    handleEdgeSelect,
+    selectedNodeId
   ]);
 
   const edgeChartProps = useMemo(() => {
-    // فعال‌سازی چارت برای تب‌های SearchCaseIds و Outliers
     if ((activeSideBar !== "SearchCaseIds" && activeSideBar !== "Outliers") || !activeTooltipEdgeId || !filePath || !filters) {
       return null;
     }
-
 
     const activeEdge = edgesForRender.find((e) => e.id === activeTooltipEdgeId);
     const activeEdgeData = activeEdge?.data as CustomEdgeData | undefined;
@@ -468,7 +589,7 @@ function Graph({
   }, [activeTooltipEdgeId, activeSideBar, edgesForRender, filePath, filters]);
 
   // ============================================================================
-  // EARLY RETURNS
+  // EARLY RETURNS & RENDER
   // ============================================================================
 
   if (isLoading) {
@@ -489,14 +610,9 @@ function Graph({
     );
   }
 
-  // ============================================================================
-  // RENDER
-  // ============================================================================
-
   return (
     <div ref={containerRef} className={`${className} w-full h-full`}>
       <div className="relative w-full h-full">
-        {/* Node Tooltip Card */}
         {isNodeCardVisible && (
           <Card className="absolute right-2 z-50 p-2 max-h-[250px] min-w-[40%] shadow-xl">
             <NodeTooltip
@@ -509,7 +625,6 @@ function Graph({
           </Card>
         )}
 
-        {/* Edge Tooltip Card */}
         {isEdgeCardVisible && (
           <Card className="absolute z-10 top-0 left-0 min-w-[40%] shadow-xl">
             <EdgeTooltip
@@ -521,7 +636,6 @@ function Graph({
           </Card>
         )}
 
-        {/* React Flow Canvas */}
         <ReactFlow
           nodes={nodesForRender}
           edges={edgesForRender}
