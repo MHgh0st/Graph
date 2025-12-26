@@ -60,6 +60,7 @@ interface GraphInteractionProps {
   selectedPathIndex: number | null;
   isPathFinding: boolean;
   isPathfindingLoading: boolean;
+  selectedEdgeId: string | null;
   handleEdgeSelect: (id: string, overrides?: EdgeTooltipOverride) => void;
   handleSelectPath: (path: Path, index: number) => void;
   handleNodeClick: (event: React.MouseEvent, node: Node) => void;
@@ -263,6 +264,7 @@ function Graph({
     isPathFinding,
     selectedPathIndex,
     foundPaths,
+    selectedEdgeId,
     handleEdgeSelect,
     handleNodeClick,
     closeNodeTooltip,
@@ -500,6 +502,7 @@ function Graph({
             <NodeTooltip
               nodeTooltipTitle={nodeTooltipTitle}
               nodeTooltipData={nodeTooltipData}
+              selectedEdgeId={selectedEdgeId}
               onClose={closeNodeTooltip}
               onEdgeSelect={handleEdgeSelect}
             />

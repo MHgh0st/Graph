@@ -36,6 +36,8 @@ export const useGraphInteraction = (
     Array<NodeTooltipType>
   >([]);
 
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+
   const [isPathFinding, setIsPathFinding] = useState(false);
   const [pathStartNodeId, setPathStartNodeId] = useState<string | null>(null);
   const [pathEndNodeId, setPathEndNodeId] = useState<string | null>(null);
@@ -123,6 +125,7 @@ export const useGraphInteraction = (
         totalTime?: string;
       }
     ) => {
+      setSelectedEdgeId(edgeId);
       const selectedEdge = allEdges.find((e) => e.id === edgeId);
 
       setLayoutedEdges((prevEdges) => {
@@ -487,6 +490,7 @@ export const useGraphInteraction = (
   };
   const closeEdgeTooltip= () => {
     setIsEdgeCardVisible(false)
+    setSelectedEdgeId(null);
     setActiveTooltipEdgeId(null);
     setLayoutedEdges((eds) =>
       eds.map((e) => ({
@@ -528,10 +532,8 @@ export const useGraphInteraction = (
     pathStartNodeId,
     pathEndNodeId,
     foundPaths,
-    // selectedPathNodes, // Removed from return as it is passed in
-    // selectedPathEdges, // Removed from return as it is passed in
-    // selectedPathIndex, // Removed from return as it is passed in
-    isPathfindingLoading: false, // همیشه false چون محاسبات آنی است
+    selectedEdgeId,
+    isPathfindingLoading: false, 
     handleEdgeSelect,
     handleSelectPath,
     handleNodeClick,
